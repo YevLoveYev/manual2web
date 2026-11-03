@@ -1,0 +1,1 @@
+pymupdf>=1.23   # only needed for pdf2web.py; docx2web.py needs nothing
