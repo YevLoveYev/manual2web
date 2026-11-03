@@ -75,11 +75,19 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
 .side .home{display:block;margin:4px 12px 10px;padding:8px 10px;border-radius:8px;text-decoration:none;color:var(--ink2);font-size:13.5px}
 .side .home:hover{background:var(--line2)}
 .ch{border-top:1px solid var(--line2)}
-.chbtn{display:flex;width:100%;align-items:flex-start;gap:10px;padding:10px 14px;border:0;background:none;cursor:pointer;text-align:left}
+.grp{padding:16px 14px 6px;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);border-top:1px solid var(--line)}
+.grp.g1{padding:8px 14px 4px 18px;font-size:12.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink2);border-top:0}
+.grp.g2{padding:6px 14px 2px 26px;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink3);border-top:0}
+.chbtn{display:flex;width:100%;align-items:flex-start;gap:4px;padding:0 6px 0 0}
 .chbtn:hover{background:var(--line2)}
+.nav a.chlink{display:flex;flex:1;align-items:flex-start;gap:10px;padding:10px 4px 10px 14px;border-left:3px solid transparent;color:var(--ink);text-decoration:none;font-size:inherit;background:none}
+.nav a.chlink:hover{background:none;color:var(--ink)}
+.nav a.chlink.active{border-left-color:var(--accent);background:none;color:var(--accent-ink)}
+.cartog{flex:none;border:0;background:none;cursor:pointer;padding:10px 6px;border-radius:6px;color:var(--ink3)}
+.cartog:hover{color:var(--ink);background:var(--line)}
 .chbtn .cn{flex:none;font:600 12px/22px ui-monospace,Consolas,monospace;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:0 6px;margin-top:1px}
 .chbtn .ct{font-size:14px;font-weight:600;line-height:1.35;padding-top:2px}
-.chbtn .car{margin-left:auto;flex:none;width:16px;height:16px;margin-top:4px;color:var(--ink3);transition:transform .15s}
+.chbtn .car{display:block;width:16px;height:16px;transition:transform .15s}
 .ch.open .car{transform:rotate(90deg)}
 .chbody{display:none;padding:0 0 10px}
 .ch.open .chbody{display:block}
@@ -102,7 +110,7 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
 .subbtn .count{font-weight:500;letter-spacing:0;margin-left:2px}
 
 /* ---------- cover ---------- */
-.cover{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:40px 44px 34px;margin-bottom:40px}
+.cover{padding:8px 0 24px;margin-bottom:8px;border-bottom:1px solid var(--line)}
 .cover .org{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:600}
 .cover h1{font-size:34px;line-height:1.15;margin:10px 0 6px;letter-spacing:-.01em;border:0;padding:0}
 .cover .meta{color:var(--ink2);font-size:14.5px}
@@ -200,7 +208,7 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
 }
 @media (max-width:640px){
   .brand{display:none}
-  .cover{padding:26px 20px}
+  .cover{padding:4px 0 20px}
   .cover h1{font-size:26px}
   .search kbd{display:none}
   .tools .opt{display:none}
@@ -230,8 +238,6 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
     <div class="results" id="results" role="listbox"></div>
   </div>
   <div class="tools">
-    <button class="btn opt" id="pdfBtn" title="View the original PDF at the page you're reading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg><span class="lbl">Original PDF</span></button>
-    <button class="btn opt" id="printBtn" title="Print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg><span class="lbl">Print</span></button>
     <button class="btn" id="themeBtn" title="Toggle light/dark" aria-label="Toggle light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
   </div>
 </header>
@@ -244,7 +250,6 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
       <h1>__TITLE__</h1>
       <div class="meta">__META__<span id="stats"></span></div>
       <div class="tips"><span><kbd>/</kbd> or <kbd>Ctrl</kbd>+<kbd>K</kbd> search</span><span><kbd>↑</kbd><kbd>↓</kbd> <kbd>Enter</kbd> pick a result</span><span><kbd>F3</kbd> / <kbd>Shift</kbd>+<kbd>F3</kbd> next / previous hit</span><span>Hover any heading to copy a link to it</span></div>
-      <div class="chgrid" id="chgrid"></div>
     </section>
 __CONTENT__
   </div>
@@ -286,11 +291,16 @@ function esc(s){return s.replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'
 var ICON_CAR = '<svg class="car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg>';
 
 /* ---------- build nav + cover cards ---------- */
-var navHTML = '<a class="home" href="#top">⌂ Cover &amp; chapter list</a>';
-var cards = '', nSec = 0, nProc = 0;
+var navHTML = '<a class="home" href="#top">⌂ Back to top</a>';
+var cards = '', nSec = 0, nProc = 0, prevG = [];
 NAV.forEach(function(ch){
-  var h = '<div class="ch" data-ch="'+ch.id+'"><button class="chbtn" aria-expanded="false"><span class="cn">'+ch.num+'</span><span class="ct">'+esc(ch.t)+'</span>'+ICON_CAR+'</button><div class="chbody">';
-  h += '<a class="l1" href="#'+ch.id+'"><span class="n">'+(ch.num ? 'Ch. '+ch.num : '§')+'</span><span>'+(ch.num ? 'Chapter start' : 'Start of section')+'</span></a>';
+  var g = ch.g || [], changed = false;
+  if (!g.length && prevG.length){ navHTML += '<div class="grp g0">Other Chapters</div>'; prevG = []; }
+  for (var gi = 0; gi < Math.max(g.length, prevG.length); gi++){
+    if (changed || g[gi] !== prevG[gi]){ changed = true; if (g[gi]) navHTML += '<div class="grp g'+Math.min(gi,2)+'">'+esc(g[gi])+'</div>' }
+  }
+  prevG = g;
+  var h = '<div class="ch" data-ch="'+ch.id+'"><div class="chbtn"><a class="chlink" href="#'+ch.id+'">'+(ch.num ? '<span class="cn">'+esc(ch.num)+'</span>' : '')+'<span class="ct">'+esc(ch.t)+'</span></a><button class="cartog" aria-expanded="false" aria-label="Show or hide sections">'+ICON_CAR+'</button></div><div class="chbody">';
   ch.secs.forEach(function(s){ nSec++;
     h += '<a class="l'+s.l+'" href="#'+s.id+'"><span class="n">'+s.num+'</span><span>'+esc(tcase(s.t))+'</span></a>'; });
   function sub(label, items, fmt){
@@ -306,12 +316,15 @@ NAV.forEach(function(ch){
   cards += '<a class="chcard" href="#'+ch.id+'"><span class="cn">'+ch.num+'</span><span><span class="ct">'+esc(ch.t)+'</span><div class="cs">'+(ch.secs.length?(ch.secs.filter(function(s){return s.l===1}).length)+' sections'+(ch.procs.length?' · '+ch.procs.length+' procedures':''):'Redacted in this edition')+'</div></span></a>';
 });
 side.innerHTML = navHTML;
-$('chgrid').innerHTML = cards;
 $('stats').textContent = NAV.length+' chapters · '+nSec+' sections · '+nProc+' procedures & tasks';
 
 side.addEventListener('click', function(e){
-  var b = e.target.closest('.chbtn, .subbtn');
-  if (b){ var p = b.parentNode; var o = p.classList.toggle('open'); b.setAttribute('aria-expanded', o); return; }
+  var t = e.target.closest('.cartog');
+  if (t){ var c = t.closest('.ch'); var o = c.classList.toggle('open'); t.setAttribute('aria-expanded', o); return; }
+  var cl = e.target.closest('.chlink');
+  if (cl){ var c2 = cl.closest('.ch'); c2.classList.add('open'); c2.querySelector('.cartog').setAttribute('aria-expanded', true) }
+  var b = e.target.closest('.subbtn');
+  if (b){ var p = b.parentNode; var o2 = p.classList.toggle('open'); b.setAttribute('aria-expanded', o2); return; }
   if (e.target.closest('a')) document.body.classList.remove('nav-open');
 });
 $('menuBtn').onclick = function(){ document.body.classList.toggle('nav-open') };
@@ -386,7 +399,7 @@ function spy(){
     if (a){
       a.classList.add('active');
       var ch = a.closest('.ch'), sb = a.closest('.sub');
-      if (ch && !ch.classList.contains('open')){ ch.classList.add('open'); ch.querySelector('.chbtn').setAttribute('aria-expanded', true) }
+      if (ch && !ch.classList.contains('open')){ ch.classList.add('open'); ch.querySelector('.cartog').setAttribute('aria-expanded', true) }
       if (sb && !sb.classList.contains('open')) sb.classList.add('open');
       var r = a.getBoundingClientRect(), sr = side.getBoundingClientRect();
       if (r.top < sr.top + 40 || r.bottom > sr.bottom - 40) side.scrollTop += r.top - sr.top - sr.height/3;
@@ -592,8 +605,6 @@ $('modal').addEventListener('mousedown', function(e){ if (e.target === this) clo
 $('mnew').onclick = function(){ window.open(getPdfURL() + '#page=' + curPdfPage, '_blank') };
 function downloadOrig(){ var a = document.createElement('a'); a.href = getPdfURL(); a.download = ORIG.name; document.body.appendChild(a); a.click(); a.remove() }
 $('mdl').onclick = downloadOrig;
-$('pdfBtn').onclick = function(){ if (ORIG.kind === 'pdf'){ spy(); openPdf(curPage) } else downloadOrig() };
-$('printBtn').onclick = function(){ window.print() };
 
 /* ---------- theme ---------- */
 var root = document.documentElement;
@@ -604,8 +615,6 @@ $('themeBtn').onclick = function(){
   try { localStorage.setItem('manual-theme', nt) } catch(e){}
 };
 
-if (ORIG.kind === 'none') $('pdfBtn').style.display = 'none';
-else if (ORIG.kind !== 'pdf'){ $('pdfBtn').querySelector('.lbl').textContent = 'Download original'; $('pdfBtn').title = 'Download the original ' + ORIG.name }
 if (ORIG.kind !== 'pdf'){ var tipEls = document.querySelectorAll('.cover .tips span'); }
 spy();
 })();

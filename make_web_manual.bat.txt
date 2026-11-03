@@ -1,5 +1,5 @@
 @echo off
-REM Drag a .pdf or .docx file onto this .bat to make the web version next to it.
+REM Drag a .pdf, a .docx, or a folder of chapter .docx files onto this .bat to make the web version next to it.
 REM Optional: put a config file named like the document (e.g. "Manual.json") next to it.
 setlocal
 if "%~1"=="" (
@@ -11,8 +11,14 @@ set "PY=python"
 where py >nul 2>nul && set "PY=py -3"
 set "CFG="
 if exist "%~dpn1.json" set CFG=-c "%~dpn1.json"
+if exist "%~1\*" (
+  if exist "%~1.json" set CFG=-c "%~1.json"
+  %PY% "%~dp0docx2web.py" "%~1" -o "%~1.html" %CFG%
+  goto done
+)
 if /I "%~x1"==".pdf"  %PY% "%~dp0pdf2web.py"  "%~1" -o "%~dpn1.html" %CFG%
 if /I "%~x1"==".docx" %PY% "%~dp0docx2web.py" "%~1" -o "%~dpn1.html" %CFG%
-if /I not "%~x1"==".pdf" if /I not "%~x1"==".docx" echo Only .pdf and .docx files are supported.
+if /I not "%~x1"==".pdf" if /I not "%~x1"==".docx" echo Only .pdf and .docx files (or a folder of .docx files) are supported.
+:done
 echo.
 pause

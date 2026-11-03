@@ -48,10 +48,11 @@ DEFAULTS = {
     "autolink": [],                    # cross-reference rules, see configs/lom_2021.json
     "footer_auto": True,
     "drop_line_regex": [],             # extra lines to delete everywhere
-    "section_titles": {},              # fix titles the PDF splits badly: {"7308": "Maintaining ..."}
+    "section_titles": {},
+    "toc_case": "title",               # sidebar titles: "title" (Title Case), "upper" (ALL CAPS) or "asis"              # fix titles the PDF splits badly: {"7308": "Maintaining ..."}
 }
 
-LIST_MARK = re.compile(r'^(\(?(?:[A-Z]|[a-z]|\d{1,3}[a-z]?|[ivxIVX]{1,4})[.)]|\(\w{1,3}\)|[•●▪◦▫■□➢\-–o])\s+(.*)$', re.S)
+LIST_MARK = re.compile(r'^(\(?(?:[A-Z]|[a-z]|\d{1,3}[a-z]?|[ivxIVX]{1,4})[.)]|\((?:[A-Za-z]|\d{1,2}|[ivx]{1,4})\)|[•●▪◦▫■□➢\-–o])\s+(.*)$', re.S)
 BULLETS = '•●▪◦▫■□➢-–o'
 
 
@@ -79,7 +80,7 @@ def span_fmt(s):
     return bold, ital, sup
 
 
-LINE_MARK = re.compile(r'^(\(?(?:[A-Z]|[a-z]|\d{1,3}[a-z]?|[ivx]{1,4})[.)]|\(\w{1,3}\)|[•●▪◦▫■□➢])\s+\S')
+LINE_MARK = re.compile(r'^(\(?(?:[A-Z]|[a-z]|\d{1,3}[a-z]?|[ivx]{1,4})[.)]|\((?:[A-Za-z]|\d{1,2}|[ivx]{1,4})\)|[•●▪◦▫■□➢])\s+\S')
 
 
 def make_block(lines, pno, r):
@@ -484,7 +485,7 @@ def render_segs(segs, linker, fixer):
 
 def strip_marker_html(h):
     """Remove the list marker from the start of inline HTML (it may sit inside <strong>)."""
-    return re.sub(r'^((?:<[^>]+>)*)\s*(\(?(?:[A-Za-z]|\d{1,3}[a-z]?|[ivxIVX]{1,4})[.)]|\(\w{1,3}\)|[%s])\s+' % re.escape(BULLETS),
+    return re.sub(r'^((?:<[^>]+>)*)\s*(\(?(?:[A-Za-z]|\d{1,3}[a-z]?|[ivxIVX]{1,4})[.)]|\((?:[A-Za-z]|\d{1,2}|[ivx]{1,4})\)|[%s])\s+' % re.escape(BULLETS),
                   r'\1', h, count=1)
 
 
@@ -541,6 +542,7 @@ def convert(pdf_path, out_path, cfg, embed=True):
     furniture = find_repeating_lines(doc, pages_blocks) if cfg['footer_auto'] else set()
     drop_rx = [re.compile(r) for r in cfg['drop_line_regex']]
     fixer = WordFixer(doc)
+    wv.configure_case(cfg)
     linker = wv.RefLinker(cfg['autolink'])
 
     # left margin of body text (most common x0) -> list indentation levels
@@ -690,13 +692,13 @@ def convert(pdf_path, out_path, cfg, embed=True):
         secs, exs, prs = [], [], []
         for e in entries:
             if ch['page'] <= e['page'] < end and not re.match(r'^\W*REDACTED', e['title'] or ''):
-                item = {'id': e['id'], 'num': e['num'], 't': wv.smart_title(e['title']) or e['num'], 'l': e['level']}
+                item = {'id': e['id'], 'num': e['num'], 't': wv.toc_case(e['title'], cfg['toc_case']) or e['num'], 'l': e['level']}
                 (exs if e['kind'] == 'ex' else secs).append(item)
         for p in sorted(procs):
             if ch['page'] <= p < end:
                 pr = procs[p]
-                prs.append({'id': pr['id'], 'num': pr['code'], 't': pr['title'], 'p': p, 'u': bool(pr.get('untitled'))})
-        nav.append({'id': ch['id'], 'num': ch['num'], 't': ch['title'], 'secs': secs, 'exs': exs, 'procs': prs})
+                prs.append({'id': pr['id'], 'num': pr['code'], 't': wv.toc_case(pr['title'], cfg['toc_case']), 'p': p, 'u': bool(pr.get('untitled'))})
+        nav.append({'id': ch['id'], 'num': ch['num'], 't': wv.toc_case(ch['title'], cfg['toc_case']), 'secs': secs, 'exs': exs, 'procs': prs})
 
     meta = doc.metadata or {}
     title = cfg['title'] or meta.get('title') or os.path.splitext(os.path.basename(pdf_path))[0].replace('_', ' ')

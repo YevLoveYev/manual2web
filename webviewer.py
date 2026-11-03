@@ -60,6 +60,91 @@ def smart_title(s):
     return ' '.join(out)
 
 
+SMALL_WORDS = {'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'from', 'in', 'into', 'nor', 'of', 'on',
+               'or', 'per', 'the', 'to', 'via', 'vs', 'with'}
+
+# Words always written in capitals. Add your own with "keep_upper": [...] in a config file.
+# (Any 2-4 letter ALL-CAPS word inside normal text, like PPE or NCIC, is kept as an acronym anyway.)
+ACRONYMS = {'DEA', 'US', 'USA', 'U.S.', 'DOJ', 'FBI', 'ATF', 'DHS', 'CBP', 'ICE', 'HQ', 'LIMS', 'SOP', 'FAQ', 'ID',
+            'PPE', 'OSHA', 'GSA', 'OPR', 'SA', 'SAC', 'ASAC', 'TFO', 'DI', 'CS', 'SF', 'LD', 'NIDA', 'NCIC',
+            'GS', 'IT', 'PII', 'FOIA', 'CFR', 'USC', 'DC', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'XI', 'XII',
+            'HIPAA', 'NADDIS', 'OCDETF', 'HIDTA', 'SWGDRUG', 'FINCEN', 'INTERPOL', 'EPIC', 'SIU', 'OIG', 'GAO',
+            'DOD', 'IRS', 'USMS', 'USCG', 'HSI', 'NFLIS', 'CSA', 'CSOS', 'ARCOS', 'DTO', 'TCO', 'AUSA', 'USAO',
+            'OCONUS', 'CONUS', 'TDY', 'PCS', 'SES', 'POC', 'NCIS', 'DIR', 'ROI', 'MOU', 'MOA', 'SOD'}
+
+# Words with capitals inside them that are correct. Add your own with "keep_case": [...] in a config file.
+CAMEL_WORDS = {'SharePoint', 'PowerPoint', 'PowerShell', 'OneDrive', 'OneNote', 'YouTube', 'LinkedIn', 'iPhone',
+               'iPad', 'iCloud', 'eBay', 'FedEx', 'WhatsApp', 'JavaScript', 'McDonald', 'MacBook', 'WebEx',
+               'FaceTime', 'iOS', 'PayPal', 'GitHub', 'TikTok', 'FirstNet', 'eGuardian', 'LexisNexis', 'WestLaw'}
+
+
+def configure_case(cfg):
+    """Apply "keep_upper" / "keep_case" lists from a config file."""
+    ACRONYMS.update(x.upper() for x in (cfg.get('keep_upper') or []))
+    CAMEL_WORDS.update(cfg.get('keep_case') or [])
+
+
+def _cap_first(word):
+    """Upper-case the first letter, and the first letter after - / ( or a double quote.
+    After an apostrophe only in names like O'Neil / D'Angelo - never in agent's."""
+    word = re.sub(r'(^|[/(\-"“])([a-z])', lambda m: m.group(1) + m.group(2).upper(), word)
+    return re.sub(r"^(\W*[OoDd]['’])([a-z])", lambda m: m.group(1)[:-2] + m.group(1)[-2].upper() + m.group(1)[-1]
+                  + m.group(2).upper(), word)
+
+
+def toc_case(s, mode='title'):
+    """Capitalization for table-of-contents entries and headings.
+
+    title (default): standard Title Case.
+        'reviewing approving and posting documents - lab' -> 'Reviewing Approving and Posting Documents - Lab'
+        Kept as written: codes with digits (7302.12, SFL2, AM6311, DEA-12), acronyms (DEA, U.S., LIMS, PPE),
+        known CamelCase words (SharePoint, iPhone).
+        Fixed: stray capitals (naLOXone, privilEges -> Naloxone, Privileges), a shouted word inside normal text
+        (Foreign Counterpart ASSISTANCE -> Assistance), U.S. stays U.S., agent's never becomes Agent'S.
+    upper: ALL CAPS.   asis: unchanged."""
+    if not s or mode == 'asis':
+        return s
+    if mode == 'upper':
+        return s.upper()
+    all_caps = s == s.upper() and bool(re.search(r'[A-Z]{2}', s))
+    words = s.split(' ')
+    out = []
+    for i, wd in enumerate(words):
+        lead = re.match(r'^[^\w]*', wd).group(0)
+        trail = re.search(r'[^\w.]*$', wd).group(0)
+        core = wd[len(lead):len(wd) - len(trail)] if trail else wd[len(lead):]
+        if not re.match(r'^(?:[A-Za-z]\.){2,}', core):
+            core = core.rstrip('.')
+        if not core:
+            out.append(wd)
+            continue
+        up = core.upper()
+        if re.search(r'\d', core):                                             # 7302.12, SFL2, AM6311, DEA-12
+            out.append(wd)
+            continue
+        if re.match(r'^(?:[A-Za-z]\.){2,}[A-Za-z]?\.?$', core):                # U.S., D.C., e.g.
+            out.append(wd.replace(core, up) if (all_caps or core[0].isupper()) else wd)
+            continue
+        if up in ACRONYMS or (up.endswith('S') and up[:-1] in ACRONYMS and len(up) > 2 and core[-1] == 's'):
+            if all_caps or core[:-1].isupper() or core.isupper():                # DEA, LIMS, SOPs, IDs
+                out.append(wd.replace(core, up if core.isupper() or all_caps else core))
+                continue
+        if not all_caps and re.match(r'^[A-Z]{2,4}s?$', core):                  # other short acronyms: NCIC, TFOs
+            out.append(wd)
+            continue
+        hit = core if core in CAMEL_WORDS else next((c for c in CAMEL_WORDS if c.lower() == core.lower()), None)
+        if hit and not all_caps:                                               # SharePoint, iPhone (also fixes 'sharepoint')
+            out.append(wd.replace(core, hit))
+            continue
+        lw = wd.lower()                                                        # everything else: normal word
+        first_or_last = i == 0 or i == len(words) - 1 or (out and out[-1].endswith((':', '-', '–', '—')))
+        if core.lower() in SMALL_WORDS and not first_or_last:
+            out.append(lw)
+            continue
+        out.append(_cap_first(lw))
+    return ' '.join(out)
+
+
 # ----------------------------------------------------------------------------
 # Cross-reference links ("see PRO-7302.2C", "LOM 7101.2", "Exhibit 1/71")
 # ----------------------------------------------------------------------------

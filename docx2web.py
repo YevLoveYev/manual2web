@@ -7,8 +7,10 @@ read here with the standard library).
 
 Usage:
     python docx2web.py manual.docx -o manual.html
+    python docx2web.py "Chapters folder" -o manual.html      (every .docx in the folder = one chapter,
+                                                              AM6111.docx -> Chapter 6111, in number order)
     python docx2web.py manual.docx -o manual.html --config configs/my_manual.json
-    python docx2web.py manual.docx --title "Safety Manual" --no-embed
+    python docx2web.py manual.docx --title "Safety Manual"
 
 What it keeps from Word:
   * Heading 1-9 styles (or outline levels) -> sidebar table of contents
@@ -70,6 +72,16 @@ DEFAULTS = {
     "exhibit_regex": None,         # headings matching this go under "Exhibits", e.g. "^Exhibit\\s+(\\S+)\\s*(.*)$"
     "procedure_regex": None,       # headings matching this go under "Procedures & tasks", e.g. "^((?:PRO|TSK)-[\\d.]+[A-Z]?\\d?)\\s*(.*)$"
     "autolink": [],                # same rules as pdf2web (see configs/lom_2021.json)
+    "chapter_from_filename": r"(\d+(?:\.\d+)*)",   # folder mode: chapter number = first number in the file name
+    # Folder mode: a block of lines at the top of each file (or in its page header) ending with the
+    # chapter number, e.g.  Drug Enforcement Administration / Agents Manual / Reporting System /
+    # General Policies / <chapter title> / 6211.  Read as: organization, manual, group(s), title, number.
+    "header_block": True,
+    "header_number_regex": r"^(?:(?:Chapter|CHAPTER|Section|SECTION)\s+)?(?:[A-Z]{1,3}\s?)?(\d{3,5}(?:\.\d+)*)[A-Za-z]?$",
+    "header_max_lines": 10,
+    "appendix_regex": r"^(?:Appendix|APPENDIX|Annex|ANNEX|Attachment|ATTACHMENT)\s+([A-Z]{1,2}|\d{1,2})\b\s*[:.\-–—]?\s*(.*)$",
+    "appendix_group": "Appendices",   # sidebar heading for appendix files
+    "toc_case": "title",        # sidebar/chapter titles: "title" (Title Case), "upper" (ALL CAPS) or "asis"
     "fallback_headings": "auto",   # if the document uses no Heading styles: detect bold numbered lines
     "heading_patterns": [          # used by the fallback; first match wins
         {"regex": r"^(?:CHAPTER|Chapter)\s+\d+", "level": 1},
@@ -278,9 +290,11 @@ class Docx(object):
 # Converter
 # =============================================================================
 class Converter(object):
-    def __init__(self, dx, cfg):
+    def __init__(self, dx, cfg, prefix=''):
         self.dx = dx
         self.cfg = cfg
+        self.prefix = prefix   # added to Word bookmark/footnote ids so merged files never clash
+        self.skip = set()      # body elements already used (e.g. the header block) - not rendered
         self.linker = wv.RefLinker(cfg.get('autolink'))
         self.counters = {}     # abstractNumId -> [count per level]
         self.num_started = set()
@@ -449,7 +463,7 @@ class Converter(object):
                     nid = wattr(ch, 'id')
                     num = len(self.notes_used) + 1
                     self.notes_used.append((kind, nid, num))
-                    add_raw('<sup class="fn"><a href="#%s-%s" id="%sref-%s">%d</a></sup>' % (kind, nid, kind, nid, num))
+                    add_raw('<sup class="fn"><a href="#%s%s-%s" id="%s%sref-%s">%d</a></sup>' % (self.prefix, kind, nid, self.prefix, kind, nid, num))
                 elif tag in (w('drawing'), w('pict'), w('object')) or tag == '{%s}AlternateContent' % MC:
                     self.drawing(ch, add_raw, extra_blocks)
 
@@ -463,7 +477,7 @@ class Converter(object):
                     anchor = wattr(ch, 'anchor')
                     link = None
                     if anchor:
-                        link = '#' + anchor
+                        link = '#' + self.prefix + anchor
                     elif rid and rid in self.dx.rels:
                         link = self.dx.rels[rid][0]
                     old = state['link']
@@ -478,7 +492,7 @@ class Converter(object):
                 elif tag == w('bookmarkStart'):
                     name = wattr(ch, 'name') or ''
                     if name and name != '_GoBack':
-                        add_raw('<span id="%s"></span>' % html.escape(name))
+                        add_raw('<span id="%s"></span>' % html.escape(self.prefix + name))
                 elif tag in (w('ins'), w('moveTo'), w('smartTag'), w('customXml'), w('sdtContent'), w('sdt')):
                     walk(ch)
                 elif tag in (w('del'), w('moveFrom'), w('pPr'), w('rPr'), w('sdtPr'), w('proofErr'),
@@ -520,11 +534,11 @@ class Converter(object):
         m = re.match(r'HYPERLINK\s+(?:\\l\s+)?"([^"]+)"(?:\s+\\l\s+"([^"]+)")?', instr)
         if m:
             if '\\l' in instr.split('"')[0]:
-                return '#' + m.group(1)
+                return '#' + self.prefix + m.group(1)
             return m.group(1) + ('#' + m.group(2) if m.group(2) else '')
         m = re.match(r'(?:REF|NOTEREF)\s+(\S+)', instr)
         if m:
-            return '#' + m.group(1)
+            return '#' + self.prefix + m.group(1)
         return None
 
     def drawing(self, el, add_raw, extra_blocks):
@@ -573,6 +587,8 @@ class Converter(object):
         """Convert body-level children to a list of block dicts."""
         out = []
         for el in container:
+            if el in self.skip:
+                continue
             tag = el.tag
             if tag == w('p'):
                 out.extend(self.paragraph(el))
@@ -707,155 +723,435 @@ class Converter(object):
                 continue
             inner = self.render(self.blocks(el))
             inner = re.sub(r'^<p>', '', inner, count=1)
-            items.append('<div class="li" id="%s-%s"><span class="m"><a href="#%sref-%s">%d</a></span><div class="lt">%s</div></div>'
-                         % (kind, nid, kind, nid, num, inner))
+            items.append('<div class="li" id="%s%s-%s"><span class="m"><a href="#%s%sref-%s">%d</a></span><div class="lt">%s</div></div>'
+                         % (self.prefix, kind, nid, self.prefix, kind, nid, num, inner))
         return '<section class="notes"><h5 class="minor">Notes</h5>%s</section>' % '\n'.join(items)
+
+
+# =============================================================================
+# Turning blocks into the page
+# =============================================================================
+class Page(object):
+    """Everything shared across the document(s) being merged into one page."""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.nav, self.html, self.used = [], [], set()
+        self.targets = {'code': {}, 'section': {}, 'exhibit': {}, 'appendix': {}}
+        self.chap_rx = re.compile(cfg['chapter_regex'])
+        self.sec_rx = re.compile(cfg['section_regex'])
+        self.ex_rx = re.compile(cfg['exhibit_regex']) if cfg.get('exhibit_regex') else None
+        self.pr_rx = re.compile(cfg['procedure_regex']) if cfg.get('procedure_regex') else None
+        self.images = self.skipped_images = self.notes = 0
+        wv.configure_case(cfg)
+
+    def start_chapter(self, num, title, groups=None, word='Chapter'):
+        prefix = 'app-' if word == 'Appendix' else 'ch'
+        cid = prefix + re.sub(r'\W+', '-', num).lower() if num else wv.slug(title, self.used)
+        if num and cid in self.used:
+            cid = wv.slug('ch-' + (title or num), self.used)
+        self.used.add(cid)
+        cur = {'id': cid, 'num': num, 't': self.case(title or ((word + ' ' + num) if num else word)),
+               'secs': [], 'exs': [], 'procs': []}
+        groups = [self.case(g) for g in (groups or [])]
+        if groups:
+            cur['g'] = groups
+        self.nav.append(cur)
+        label = ' · '.join((groups if word != 'Appendix' else []) + ([word + ' ' + num] if num else []))
+        self.html.append('<h1 id="%s" class="chapter">%s%s</h1>'
+                         % (cid, '<span class="num">%s</span> ' % html.escape(label) if label else '',
+                            html.escape(cur['t'])))
+        return cur
+
+    def add_document(self, cv, blocks, chap, cur=None):
+        """Render one document's blocks. chap = the heading level that means 'chapter'.
+        If cur is given (multi-file mode) the chapter already exists and headings never start a new one."""
+        forced = cur is not None
+        for b in blocks:
+            if b['type'] == 'title':
+                continue
+            if b['type'] != 'heading' or b.get('as_title'):
+                if b['type'] == 'heading':
+                    continue
+                self.html.append(cv.render([b]))
+                continue
+            text, label, lvl = b['text'], b['label'], b['level']
+            num, title = label, text
+            m = self.sec_rx.match(text)
+            if not num and m:
+                num, title = m.group(1), m.group(2)
+            if forced and lvl <= chap:
+                lvl = chap + 1
+            if lvl < chap:
+                lvl = chap
+            if lvl == chap:
+                mc = self.chap_rx.match(text)
+                cnum, ctitle = (mc.group(1), mc.group(2).strip()) if mc else (num, title)
+                cur = self.start_chapter(cnum, ctitle or text)
+                continue
+            if cur is None:
+                cur = {'id': 'front', 'num': '', 't': 'Introduction', 'secs': [], 'exs': [], 'procs': []}
+                self.used.add('front')
+                self.nav.append(cur)
+                self.html.append('<span class="anchor" id="front"></span>')
+            depth = lvl - chap          # 1 = first level under a chapter
+            mex = self.ex_rx.match(text) if self.ex_rx else None
+            mpr = self.pr_rx.match(text) if self.pr_rx else None
+            if mex:
+                hid = wv.num_id(mex.group(1), self.used, 'ex')
+                self.targets['exhibit'][mex.group(1)] = hid
+                cur['exs'].append({'id': hid, 'num': mex.group(1), 't': wv.smart_title(mex.group(2) or text), 'l': 2})
+                self.html.append('<h2 id="%s" class="exhibit"><span class="num">%s</span> %s</h2>'
+                                 % (hid, html.escape(text[:mex.end(1)]), html.escape(wv.smart_title(mex.group(2)))))
+                continue
+            if mpr:
+                hid = wv.num_id(mpr.group(1), self.used, '')
+                self.targets['code'][mpr.group(1)] = hid
+                cur['procs'].append({'id': hid, 'num': mpr.group(1), 't': mpr.group(2) or text, 'u': False})
+                self.html.append('<h2 id="%s" class="proc"><span class="num">%s</span> %s</h2>'
+                                 % (hid, html.escape(mpr.group(1)), html.escape(mpr.group(2) or text)))
+                continue
+            hid = wv.num_id(num, self.used) if num else wv.slug(title, self.used)
+            if num:
+                self.targets['section'].setdefault(num, hid)
+            hl = min(depth + 1, 5)
+            # keep bookmarks that were inside the heading so Word cross-references still land here
+            bms = ''.join(re.findall(r'<span id="[^"]+"></span>', b['html']))
+            if depth <= 3:
+                cur['secs'].append({'id': hid, 'num': num, 't': wv.smart_title(title), 'l': max(1, depth)})
+            tag = 'h%d' % hl if hl <= 4 else 'h5'
+            self.html.append('<%s id="%s"%s>%s%s%s</%s>' % (
+                tag, hid, ' class="minor"' if tag == 'h5' else '', bms,
+                '<span class="num">%s</span> ' % html.escape(num) if num else '', html.escape(self.case(title)), tag))
+        self.html.append(cv.notes_html())
+        self.images += cv.images
+        self.skipped_images += cv.skipped_images
+        self.notes += len(cv.notes_used)
+        return cur
+
+    def case(self, s):
+        return wv.toc_case(s, self.cfg.get('toc_case', 'title'))
+
+    def write(self, out_path, title):
+        for ch in self.nav:          # consistent capitalization everywhere in the sidebar
+            ch['t'] = self.case(ch['t'])
+            for key in ('secs', 'exs', 'procs'):
+                for it in ch[key]:
+                    it['t'] = self.case(it['t'])
+        body = '\n'.join(x for x in self.html if x)
+        body, nlinks = wv.resolve_refs(body, self.targets)
+        size = wv.assemble(out_path, self.nav, body, title, self.cfg['subtitle'], self.cfg['org'], self.cfg['meta'],
+                           original_kind='none')
+        nav = self.nav
+        log('  %d chapters, %d sections, %d exhibits, %d procedures; %d pictures%s; %d footnotes; %d cross-reference links'
+            % (len(nav), sum(len(c['secs']) for c in nav), sum(len(c['exs']) for c in nav),
+               sum(len(c['procs']) for c in nav), self.images,
+               (' (%d in formats browsers cannot show, e.g. EMF)' % self.skipped_images) if self.skipped_images else '',
+               self.notes, nlinks))
+        log('Wrote %s (%.1f MB)' % (out_path, size / 1e6))
+
+
+DECOR = '*_#•·~ \t'
+
+
+def _para_text(p):
+    """Plain text of a paragraph, without decoration such as **6126** or *6126."""
+    t = re.sub(r'\s+', ' ', ''.join(t.text or '' for t in p.iter(w('t')))).strip()
+    return t.strip(DECOR).strip()
+
+
+def _top_lines(container):
+    """Yield (top_level_element, [non-empty text lines]) in document order."""
+    for el in container:
+        if el.tag == w('p'):
+            t = _para_text(el)
+            yield el, ([t] if t else [])
+        elif el.tag == w('tbl'):
+            yield el, [t for t in (_para_text(p) for p in el.iter(w('p'))) if t]
+        elif el.tag == w('sdt'):
+            c = el.find(w('sdtContent'))
+            if c is not None:
+                lines = [t for t in (_para_text(p) for p in c.iter(w('p'))) if t]
+                yield el, lines
+
+
+def find_header_block(dx, cfg):
+    """Look for the header block at the top of the body (or in the page header).
+
+    Chapter files: up to N lines ending with a chapter-number line; the line above the number is the title.
+        Drug Enforcement Administration / Agents Manual / Reporting System / General Policies / <title> / 6211
+    Appendix files: an "Appendix D" line; the title is on the same line or the next line with text.
+        Drug Enforcement Administration / Agents Manual / Appendix D / <title>
+    Returns (info, elements_to_skip) or (None, [])."""
+    rx = re.compile(cfg['header_number_regex'])
+    arx = re.compile(cfg['appendix_regex']) if cfg.get('appendix_regex') else None
+    maxn = int(cfg['header_max_lines'])
+
+    def scan(container):
+        """-> ('chapter', lines_before, number, used) | ('appendix', lines_before, letter, title, used) | None"""
+        lines, used, app = [], [], None
+        for el, texts in _top_lines(container):
+            for k, t in enumerate(texts):
+                if app is not None:                       # first line with text after "Appendix D" = its title
+                    if el not in used and len(texts) == 1:
+                        used.append(el)
+                    return ('appendix', app[0], app[1], t, used)
+                lines.append(t)
+                if el not in used:
+                    used.append(el)
+                ma = arx.match(t) if arx else None
+                if ma:
+                    if ma.group(2).strip():
+                        return ('appendix', lines[:-1], ma.group(1), ma.group(2).strip(), used)
+                    app = (lines[:-1], ma.group(1))
+                    continue
+                m = rx.match(t)
+                if m and len(lines) >= 2:
+                    # don't hide a table/content control that has real content after the number line
+                    if len(texts) - k - 1 > 0:
+                        used.remove(el)
+                    return ('chapter', lines[:-1], m.group(1).replace(' ', ''), used)
+                if len(lines) >= maxn:
+                    return None
+            if len(lines) >= maxn:
+                return None
+        if app is not None:
+            return ('appendix', app[0], app[1], '', used)
+        return None
+
+    body = dx.doc.find(w('body'))
+    found = scan(body)
+    skip = []
+    if found:
+        skip = found[-1]
+    else:
+        # page header part(s) referenced by the document's section properties
+        for ref in dx.doc.iter(w('headerReference')):
+            rid = ref.get('{%s}id' % RNS)
+            path, data = dx.media(rid)
+            if data:
+                found = scan(ET.fromstring(data))
+                if found:
+                    # appendix label in the page header, title as the first line of the body
+                    if found[0] == 'appendix' and not found[3]:
+                        for el, texts in _top_lines(body):
+                            if texts:
+                                found = found[:3] + (texts[0],) + (found[4],)
+                                if len(texts) == 1:
+                                    skip = [el]
+                                break
+                    break
+    if not found:
+        return None, []
+    if found[0] == 'appendix':
+        _, before, letter, title, _u = found
+        info = {'kind': 'appendix', 'number': letter.upper() if len(letter) == 1 else letter, 'title': title}
+        info['org'] = before[0] if len(before) >= 2 else ''
+        info['manual'] = before[1] if len(before) >= 2 else (before[0] if before else '')
+        info['groups'] = []
+        return info, skip
+    _, before, num, _u = found
+    info = {'kind': 'chapter', 'number': num, 'title': before[-1] if before else ''}
+    rest = before[:-1]
+    info['org'] = rest[0] if len(rest) >= 3 else ''
+    info['manual'] = rest[1] if len(rest) >= 3 else (rest[0] if len(rest) == 2 else '')
+    info['groups'] = rest[2:] if len(rest) >= 3 else (rest[1:] if len(rest) == 2 else rest)
+    return info, skip
+
+
+def read_document(path, cfg, prefix='', header=False):
+    dx = Docx(path)
+    cv = Converter(dx, cfg, prefix)
+    hdr = None
+    if header:
+        hdr, skip = find_header_block(dx, cfg)
+        cv.skip = set(skip)
+    blocks = cv.blocks(dx.doc.find(w('body')))
+    cv.header = hdr
+    props = {}
+    core = dx.read('docProps/core.xml')
+    if core:
+        for el in ET.fromstring(core):
+            props[el.tag.split('}')[-1]] = (el.text or '').strip()
+    title_block = next((b for b in blocks if b['type'] == 'title'), None)
+    return cv, blocks, (title_block['text'] if title_block else ''), props
+
+
+def top_heading_as_title(blocks):
+    """If a document has exactly one heading at its top level, that heading is its title.
+    Returns (title_text_or_None, level_that_means_chapter)."""
+    heads = [b for b in blocks if b['type'] == 'heading']
+    lvls = sorted(set(b['level'] for b in heads))
+    if not lvls:
+        return None, 0
+    top = [b for b in heads if b['level'] == lvls[0]]
+    if len(top) == 1 and len(lvls) > 1:
+        top[0]['as_title'] = True
+        return top[0]['text'], lvls[0]
+    return None, lvls[0] - 1
 
 
 # =============================================================================
 # Main
 # =============================================================================
-def convert(path, out_path, cfg, embed=True):
+def convert(path, out_path, cfg):
+    """One Word file -> one page. Chapters come from the document's top heading level."""
     log('Reading %s ...' % os.path.basename(path))
-    dx = Docx(path)
-    cv = Converter(dx, cfg)
-    body_el = dx.doc.find(w('body'))
-    blocks = cv.blocks(body_el)
+    cv, blocks, title_text, props = read_document(path, cfg)
     if not cv.has_heading_styles:
         log('  note: no Heading styles found; detecting bold numbered lines as headings')
-
     heads = [b for b in blocks if b['type'] == 'heading']
-    title_block = next((b for b in blocks if b['type'] == 'title'), None)
     if not heads:
         log('  warning: no headings found - the sidebar will be empty. Use Heading styles in Word, '
             'or set "heading_patterns" in a config file.')
-
-    # ---- which level is "chapter"
     lvls = sorted(set(b['level'] for b in heads))
     chap = cfg['chapter_level']
     if chap == 'auto':
         chap = lvls[0] if lvls else 1
         if len([b for b in heads if b['level'] == chap]) == 1 and len(lvls) > 1:
             only = next(b for b in heads if b['level'] == chap)
-            if title_block is None:
-                title_block = {'text': only['text']}
+            title_text = title_text or only['text']
             only['as_title'] = True
             chap = lvls[1]
-    chap = int(chap)
-
-    chap_rx = re.compile(cfg['chapter_regex'])
-    sec_rx = re.compile(cfg['section_regex'])
-    ex_rx = re.compile(cfg['exhibit_regex']) if cfg.get('exhibit_regex') else None
-    pr_rx = re.compile(cfg['procedure_regex']) if cfg.get('procedure_regex') else None
-    targets = {'code': {}, 'section': {}, 'exhibit': {}}
-    nav, used = [], cv.used_ids
-    cur = None
-    html_out = []
-    for b in blocks:
-        if b['type'] == 'title':
-            continue
-        if b['type'] != 'heading' or b.get('as_title'):
-            if b['type'] == 'heading':
-                continue
-            html_out.append(cv.render([b]))
-            continue
-        text, label, lvl = b['text'], b['label'], b['level']
-        # number: from Word numbering, or typed at the start of the heading text
-        num = label
-        title = text
-        m = sec_rx.match(text)
-        if not num and m:
-            num, title = m.group(1), m.group(2)
-        if lvl < chap:
-            lvl = chap
-        if lvl == chap:
-            mc = chap_rx.match(text)
-            cnum, ctitle = (mc.group(1), mc.group(2).strip()) if mc else (num, title)
-            cid = 'ch' + re.sub(r'\W+', '-', cnum) if cnum else wv.slug(ctitle, used)
-            if cid in used and cnum:
-                cid = wv.slug('ch-' + ctitle, used)
-            used.add(cid)
-            cur = {'id': cid, 'num': cnum, 't': wv.smart_title(ctitle or text), 'secs': [], 'exs': [], 'procs': []}
-            nav.append(cur)
-            html_out.append('<h1 id="%s" class="chapter">%s%s</h1>'
-                            % (cid, '<span class="num">Chapter %s</span> ' % html.escape(cnum) if cnum else '',
-                               html.escape(wv.smart_title(ctitle or text))))
-            continue
-        if cur is None:
-            cur = {'id': 'front', 'num': '', 't': 'Introduction', 'secs': [], 'exs': [], 'procs': []}
-            used.add('front')
-            nav.append(cur)
-            html_out.append('<span class="anchor" id="front"></span>')
-        depth = lvl - chap          # 1 = first level under a chapter
-        mex = ex_rx.match(text) if ex_rx else None
-        mpr = pr_rx.match(text) if pr_rx else None
-        if mex:
-            hid = wv.num_id(mex.group(1), used, 'ex')
-            targets['exhibit'][mex.group(1)] = hid
-            cur['exs'].append({'id': hid, 'num': mex.group(1), 't': wv.smart_title(mex.group(2) or text), 'l': 2})
-            html_out.append('<h2 id="%s" class="exhibit"><span class="num">%s</span> %s</h2>'
-                            % (hid, html.escape(text[:mex.end(1)]), html.escape(wv.smart_title(mex.group(2)))))
-            continue
-        if mpr:
-            hid = wv.num_id(mpr.group(1), used, '')
-            targets['code'][mpr.group(1)] = hid
-            cur['procs'].append({'id': hid, 'num': mpr.group(1), 't': mpr.group(2) or text, 'u': False})
-            html_out.append('<h2 id="%s" class="proc"><span class="num">%s</span> %s</h2>'
-                            % (hid, html.escape(mpr.group(1)), html.escape(mpr.group(2) or text)))
-            continue
-        hid = wv.num_id(num, used) if num else wv.slug(title, used)
-        if num:
-            targets['section'][num] = hid
-        hl = min(depth + 1, 5)
-        # keep bookmarks that were inside the heading so Word cross-references still land here
-        bms = ''.join(re.findall(r'<span id="[^"]+"></span>', b['html']))
-        if depth <= 3:
-            cur['secs'].append({'id': hid, 'num': num, 't': wv.smart_title(title), 'l': max(1, depth)})
-        tag = 'h%d' % hl if hl <= 4 else 'h5'
-        html_out.append('<%s id="%s"%s>%s%s%s</%s>' % (
-            tag, hid, ' class="minor"' if tag == 'h5' else '', bms,
-            '<span class="num">%s</span> ' % html.escape(num) if num else '', html.escape(wv.smart_title(title)), tag))
-    html_out.append(cv.notes_html())
-    body = '\n'.join(x for x in html_out if x)
-    body, nlinks = wv.resolve_refs(body, targets)
-
-    props = {}
-    core = dx.read('docProps/core.xml')
-    if core:
-        for el in ET.fromstring(core):
-            props[el.tag.split('}')[-1]] = (el.text or '').strip()
-    title = (cfg['title'] or (title_block['text'] if title_block else '') or props.get('title')
+    page = Page(cfg)
+    page.add_document(cv, blocks, int(chap))
+    title = (cfg['title'] or title_text or props.get('title')
              or os.path.splitext(os.path.basename(path))[0].replace('_', ' '))
-    orig = open(path, 'rb').read() if embed else None
-    size = wv.assemble(out_path, nav, body, title, cfg['subtitle'], cfg['org'], cfg['meta'],
-                       original_bytes=orig, original_name=os.path.basename(path), original_kind='docx')
-    nsec = sum(len(c['secs']) for c in nav)
-    log('  %d chapters, %d sections, %d exhibits, %d procedures; %d pictures%s; %d footnotes; %d cross-reference links'
-        % (len(nav), nsec, sum(len(c['exs']) for c in nav), sum(len(c['procs']) for c in nav), cv.images,
-           (' (%d in formats browsers cannot show, e.g. EMF)' % cv.skipped_images) if cv.skipped_images else '',
-           len(cv.notes_used), nlinks))
-    log('Wrote %s (%.1f MB)' % (out_path, size / 1e6))
+    page.write(out_path, title)
+
+
+def chapter_key(path, rx):
+    m = rx.search(os.path.splitext(os.path.basename(path))[0])
+    if not m:
+        return (1, (), os.path.basename(path).lower()), ''
+    num = m.group(1)
+    return (0, tuple(int(x) for x in re.findall(r'\d+', num)), os.path.basename(path).lower()), num
+
+
+def clean_chapter_title(text, num, chap_rx):
+    """'CHAPTER 6111 - EVIDENCE HANDLING' / '6111 Evidence Handling' / 'AM6111: Evidence' -> 'Evidence Handling'"""
+    if not text:
+        return ''
+    m = chap_rx.match(text)
+    if m and m.group(2).strip():
+        return m.group(2).strip()
+    if num:
+        t = re.sub(r'^\W*(?:[A-Za-z]{0,4}\s*)?' + re.escape(num) + r'\b[\s:.\-–—]*', '', text).strip()
+        if t:
+            return t
+    return text
+
+
+def convert_many(paths, out_path, cfg, title=None, fallback_title='Manual'):
+    """Several Word files -> one page. Each file is one chapter, numbered and ordered by its file name
+    (AM6111.docx -> Chapter 6111)."""
+    rx = re.compile(cfg['chapter_from_filename'])
+    items = sorted((chapter_key(p, rx) + (p,)) for p in paths)
+    if cfg.get('appendix_regex'):     # make "Appendix D" in the text a link to that appendix
+        cfg = dict(cfg, autolink=list(cfg.get('autolink') or []) +
+                   [{'regex': r'\bAppendix\s+([A-Z]{1,2}|\d{1,2})\b', 'kind': 'appendix'}])
+    page = Page(cfg)
+    log('Merging %d Word files into one page:' % len(items))
+    docs, manuals, orgs, no_header = [], {}, {}, []
+    for i, (key, num, path) in enumerate(items):
+        cv, blocks, title_text, props = read_document(path, cfg, prefix='c%d-' % (i + 1), header=cfg.get('header_block'))
+        hdr = cv.header
+        groups = []
+        is_app = bool(hdr and hdr.get('kind') == 'appendix')
+        if hdr:
+            num = hdr['number'] or num
+            ctitle = clean_chapter_title(hdr['title'], num, page.chap_rx) if not is_app else hdr['title']
+            groups = hdr['groups'] if not is_app else [cfg.get('appendix_group') or 'Appendices']
+            if hdr['manual']:
+                manuals[hdr['manual']] = manuals.get(hdr['manual'], 0) + 1
+            if hdr['org']:
+                orgs[hdr['org']] = orgs.get(hdr['org'], 0) + 1
+            heads = [b for b in blocks if b['type'] == 'heading']
+            chap = (min(b['level'] for b in heads) - 1) if heads else 0
+        else:
+            if cfg.get('header_block'):
+                no_header.append(os.path.basename(path))
+            heading_title, chap = top_heading_as_title(blocks)
+            ctitle = clean_chapter_title(title_text or heading_title or props.get('title', ''), num, page.chap_rx)
+        if not ctitle:
+            ctitle = os.path.splitext(os.path.basename(path))[0]
+        sort_key = ((2, (), num.lower(), key) if is_app else chapter_sort_key(num, key))
+        docs.append([sort_key, num, ctitle, groups, cv, blocks, chap, path, bool(hdr), is_app])
+    # a file whose header block couldn't be read must not be titled with the manual's or organization's name
+    names = set(n.lower() for n in list(manuals) + list(orgs))
+    for d in docs:
+        if not d[8] and d[2].lower().strip() in names:
+            d[2] = ('Appendix %s' if d[9] else 'Chapter %s') % d[1] if d[1] else os.path.splitext(os.path.basename(d[7]))[0]
+            log('  warning: %s - header block not recognized; titled "%s". Check its first lines.'
+                % (os.path.basename(d[7]), d[2]))
+    # order by chapter number (from the header block when present, else the file name)
+    docs.sort(key=lambda d: d[0])
+    for _, num, ctitle, groups, cv, blocks, chap, path, _h, is_app in docs:
+        nheads = len([b for b in blocks if b['type'] == 'heading' and not b.get('as_title')])
+        log('  %-24s -> %s%s %s  (%d headings)' % (os.path.basename(path)[:24], ' / '.join(groups) + ' / ' if groups else '',
+                                                    num or '?', ctitle[:50], nheads))
+        if is_app and not ctitle:
+            ctitle = 'Appendix %s' % num
+        cur = page.start_chapter(num, ctitle, groups, word='Appendix' if is_app else 'Chapter')
+        if is_app:
+            page.targets['appendix'][num.upper()] = cur['id']
+        page.add_document(cv, blocks, chap, cur=cur)
+    if no_header:
+        log('  note: no header block (lines ending in a chapter number) found in %d file(s): %s'
+            % (len(no_header), ', '.join(no_header[:8]) + (' ...' if len(no_header) > 8 else '')))
+    top = lambda d: max(d, key=d.get) if d else ''
+    if not cfg.get('org') and orgs:
+        page.cfg = dict(page.cfg, org=top(orgs))
+    page.write(out_path, title or cfg['title'] or wv.smart_title(top(manuals)) or fallback_title)
+
+
+def chapter_sort_key(num, filekey):
+    if num:
+        return (0, tuple(int(x) for x in re.findall(r'\d+', num)), filekey)
+    return (1, (), filekey)
+
+
+def collect_inputs(args):
+    files = []
+    for a in args:
+        if os.path.isdir(a):
+            for name in os.listdir(a):
+                if name.lower().endswith('.docx') and not name.startswith('~$'):
+                    files.append(os.path.join(a, name))
+        elif a.lower().endswith('.doc'):
+            sys.exit('%s is an old .doc file. Open it in Word and "Save As" .docx first.' % a)
+        elif os.path.isfile(a):
+            files.append(a)
+        else:
+            sys.exit('Not found: %s' % a)
+    if not files:
+        sys.exit('No .docx files found.')
+    return files
 
 
 def main():
-    ap = argparse.ArgumentParser(description='Convert a Word (.docx) manual into one searchable HTML file.')
-    ap.add_argument('docx')
-    ap.add_argument('-o', '--out', help='output .html (default: next to the .docx)')
+    ap = argparse.ArgumentParser(
+        description='Convert a Word (.docx) manual - or a folder of chapter files - into one searchable HTML file.')
+    ap.add_argument('inputs', nargs='+', help='a .docx file, several .docx files, or a folder of .docx files')
+    ap.add_argument('-o', '--out', help='output .html (default: next to the input)')
     ap.add_argument('-c', '--config', help='JSON config (see configs/)')
     ap.add_argument('--title')
     ap.add_argument('--subtitle')
-    ap.add_argument('--no-embed', action='store_true', help="don't embed the original .docx for download")
     a = ap.parse_args()
-    if a.docx.lower().endswith('.doc'):
-        sys.exit('This is an old .doc file. Open it in Word and "Save As" .docx first.')
     cfg = dict(DEFAULTS)
     cfg.update(wv.load_config(a.config))
-    if a.title:
-        cfg['title'] = a.title
     if a.subtitle is not None:
         cfg['subtitle'] = a.subtitle
-    out = a.out or os.path.splitext(a.docx)[0] + '.html'
-    convert(a.docx, out, cfg, embed=not a.no_embed)
+    files = collect_inputs(a.inputs)
+    if len(files) == 1 and not os.path.isdir(a.inputs[0]):
+        if a.title:
+            cfg['title'] = a.title
+        out = a.out or os.path.splitext(files[0])[0] + '.html'
+        convert(files[0], out, cfg)
+    else:
+        base = a.inputs[0].rstrip('/\\') if os.path.isdir(a.inputs[0]) else os.path.dirname(os.path.abspath(files[0]))
+        out = a.out or (base + '.html')
+        convert_many(files, out, cfg, title=a.title, fallback_title=os.path.basename(os.path.abspath(base)).replace('_', ' '))
 
 
 if __name__ == '__main__':
