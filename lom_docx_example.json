@@ -1,0 +1,26 @@
+{
+  "title": "Laboratory Operations Manual",
+  "subtitle": "Office of Forensic Sciences",
+  "org": "Drug Enforcement Administration · Office of Forensic Sciences",
+  "meta": "",
+
+  "chapter_regex": "^CHAPTER\\s+(\\d+)\\s+(.*)$",
+  "section_regex": "^(\\d{4}(?:\\.\\d+)?)\\s+(.*)$",
+  "exhibit_regex": "^Exhibit\\s+(\\d+/\\d+)\\s*(.*)$",
+  "procedure_regex": "^((?:PRO|TSK)-\\d{4}(?:\\.\\d+)?[A-Z]?\\d?)[,\\s]*(.*)$",
+
+  "heading_patterns": [
+    { "regex": "^CHAPTER\\s+\\d+", "level": 1 },
+    { "regex": "^Exhibit\\s+\\d+/\\d+", "level": 2 },
+    { "regex": "^(?:PRO|TSK)-\\d{4}", "level": 2 },
+    { "regex": "^\\d{4}\\s+\\S", "level": 2 },
+    { "regex": "^\\d{4}\\.\\d\\s+\\S", "level": 3 },
+    { "regex": "^\\d{4}\\.\\d{2,}\\s+\\S", "level": 4 }
+  ],
+
+  "autolink": [
+    { "regex": "\\b((?:PRO|TSK)-\\d{4}(?:\\.\\d+)?[A-Z]?\\d?)", "kind": "code" },
+    { "regex": "\\bLOM\\s+(\\d{4}(?:\\.\\d+)?[A-Z]?)", "kind": "section" },
+    { "regex": "\\bExhibit\\s+(\\d+/\\d+)", "kind": "exhibit" }
+  ]
+}

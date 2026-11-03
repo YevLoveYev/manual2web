@@ -1,0 +1,32 @@
+{
+  "title": "Laboratory Operations Manual",
+  "subtitle": "Office of Forensic Sciences · June 2021",
+  "org": "Drug Enforcement Administration · Office of Forensic Sciences",
+  "meta": "June 2021 edition · Date posted 09/01/2021",
+
+  "skip_pages": [1],
+  "skip_toc_pages": true,
+  "page_label_offset": 1,
+
+  "chapter_bookmark_level": 2,
+  "chapter_regex": "^CHAPTER\\s+(\\d+)\\s+(.*)$",
+  "sections_from": "toc_links",
+  "section_regex": "^(\\d{4}(?:\\.\\d+)?)\\s*(.*)$",
+  "level_rule": "lom",
+  "section_titles": { "7308": "Maintaining Laboratory Case Files and Records" },
+  "exhibit_regex": "^(?:Exhibit\\s*)?(\\d+/\\d+)\\s*(.*)$",
+
+  "procedures": {
+    "start_regex": "^See Also",
+    "code_regex": "(?:PRO|TSK)-\\d{4}(?:\\.\\d+)?[A-Z]?\\d?",
+    "related_regex": "LOM (\\d{4}(?:\\.\\d+)?)",
+    "redacted_word": "REDACTED",
+    "overrides": { "191": "PRO-7404.91B", "263": "PRO-7803.5" }
+  },
+
+  "autolink": [
+    { "regex": "\\b((?:PRO|TSK)-\\d{4}(?:\\.\\d+)?[A-Z]?\\d?)", "kind": "code" },
+    { "regex": "\\bLOM\\s+(\\d{4}(?:\\.\\d+)?[A-Z]?)", "kind": "section" },
+    { "regex": "\\bExhibit\\s+(\\d+/\\d+)", "kind": "exhibit" }
+  ]
+}
