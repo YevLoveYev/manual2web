@@ -1,0 +1,21 @@
+{
+  "title": "Agents Manual",
+  "subtitle": "Drug Enforcement Administration",
+  "org": "Drug Enforcement Administration",
+  "meta": "",
+  "link_base": "https://doj365.sharepoint.us/sites/DEA-AgentsManual/SitePages/DEA-Agents-Manual.html",
+  "section_id_prefix": "",
+  "chapter_id_prefix": "",
+  "footer": "Official Agents Manual of the Drug Enforcement Administration. Replace this text with your required wording.",
+
+  "header_block": true,
+  "appendix_group": "Appendices",
+  "toc_case": "title",
+  "keep_upper": [],
+  "keep_case": [],
+
+  "autolink": [
+    { "regex": "\\bAM\\s?(\\d{4}(?:\\.\\d+)*)", "kind": "section" },
+    { "regex": "\\b[Ss]ection\\s+(\\d{4}(?:\\.\\d+)+)", "kind": "section" }
+  ]
+}
