@@ -9,6 +9,7 @@ double-click it. Access control is whatever the folder's permissions are.
 manual2web/
   pdf2web.py            PDF  -> HTML   (needs PyMuPDF)
   docx2web.py           Word -> HTML   (Python standard library only)
+  links2excel.py        Word -> Excel list of every hyperlink (standard library only)
   webviewer.py          shared code (standard library only)
   viewer_template.html  the page design: sidebar, search, styles
   configs/
@@ -100,7 +101,18 @@ python docx2web.py "C:\Manuals\AM chapters" -o "Admin Manual.html" --title "Admi
   6211                                 <- chapter number
   ```
 
-  those lines are used as shown and not repeated in the text. The block can be plain lines, a table,
+  those lines are used as shown and not repeated in the text. The lines are recognized by what they are,
+  not only by position: the first line is the organization; any line that is the manual's name ("Agents
+  Manual", "Agent Manual", "Agent's Manual", or whatever `title` says in the config) is the overall title
+  wherever it appears; blank lines are skipped; the remaining lines are chapter, sub-chapter and title.
+  Other spellings of the manual's name can be listed in `"manual_names": [...]`. Lines naming the
+  organization (Drug Enforcement Administration/Agency, or `org` from the config) and banner lines such as
+  "DEA SENSITIVE", "This manual is the property of ..." or "U.S. Department of Justice" are never used as a
+  chapter or title; add more patterns with `"header_ignore": [...]`. "CHAPTER 61 GENERAL" and
+  "Subchapter 611 Authority and Conduct" are shown as "General" and "Authority and Conduct", and a number
+  with its title on one line ("6111 AUTHORITY") works too. A title that wraps onto a second line (or a second
+  paragraph) is joined back together; text inside a logo or text box in the header is ignored.
+  `"header_levels": 2` = how many header lines are chapter levels in the sidebar (chapter, sub-chapter). The block can be plain lines, a table,
   or Word's page header; the number line can be `6211`, `AM 6211`, `Chapter 6211` or decorated like `**6126**`. If a file has
   fewer lines (no sub-group, say), the line right above the number is still the title. Files without
   such a block are listed in the script's output and fall back to the rules below.
@@ -108,6 +120,13 @@ python docx2web.py "C:\Manuals\AM chapters" -o "Admin Manual.html" --title "Admi
 - **Appendix files.** If the block has an `Appendix D` line instead of a number, the title is taken from the
   same line (`Appendix D – Abbreviations`) or the next line with text. Appendices are placed after all
   chapters, in letter order, under an **Appendices** heading, and "Appendix D" in the text becomes a link.
+- **Sections without Word heading styles.** In appendix files (and any file without Heading styles) an
+  ALL-CAPS line on its own becomes a section, e.g. `AMPHETAMINES:` or `OTHER MEANS OF IDENTIFICATION`
+  (trailing colon removed). Labels such as `TEST MATERIALS:`, `TEST PROCEDURE:`, `COLOR REACTIONS:`,
+  `CAUTION:` and `NOTE:` stay as text, as do ALL-CAPS table cells and list items. Change the label list with
+  `"caps_heading_ignore"`, or switch this off with `"caps_headings": false` (`true` = in every file).
+  In appendix files those labels stay text even when Word styles them as headings (`"appendix_labels"`),
+  and all sections are listed at one level, with no nesting (`"appendix_flat": true`).
 - All headings inside a file become that chapter's sections. Word cross-references, bookmarks and
   footnotes stay inside their own chapter, even if two files use the same internal names.
 - Word's temporary lock files (`~$...docx`) are ignored. Old `.doc` files must be saved as `.docx` first.
@@ -115,6 +134,38 @@ python docx2web.py "C:\Manuals\AM chapters" -o "Admin Manual.html" --title "Admi
 
 To link chapters to each other, add an autolink rule for the way your manual cites them, e.g.
 `{ "regex": "\\bAM\\s+(\\d{3,4}(?:\\.\\d+)?)", "kind": "section" }` turns "AM 6112.1" into a link.
+
+## Hyperlink report (links2excel.py)
+
+Lists every hyperlink in a set of Word files in an Excel workbook, to see which are good, broken or risky.
+Standard library only, like docx2web.py.
+
+```
+python links2excel.py "AM chapters"                      -> "AM chapters - links.xlsx"
+python links2excel.py "AM chapters" -o links.xlsx -c configs/agents_manual.json
+python links2excel.py "AM chapters" --check              also try to open web links / network paths
+```
+
+It reads body text, tables, text boxes, page headers/footers, footnotes and endnotes, and finds normal
+hyperlinks, links to places inside the document, HYPERLINK fields, Word cross-references and links on
+pictures. Word's own table of contents is skipped unless you add `--include-toc`.
+
+Sheets:
+- **Links**: one row per link, with file, chapter number and title (from the header block), the section
+  heading it sits under, where it is (body / page header / footnote), link text, type, status, target
+  (clickable), SharePoint site, how many times that target is used, and notes. Filter and sort as needed.
+- **Unique targets**: each address once, with how often and in which files it's used.
+- **Summary**: totals by status, type, SharePoint site, and the files with the most broken links.
+
+Status: **OK** (target found), **BROKEN** (bookmark missing, Word's "Error! Reference source not found",
+file missing, or a 404), **CHECK MANUALLY** (needs your login or the share isn't reachable),
+**NOT CHECKED** (web link; use `--check`), **EMAIL**.
+Notes flag SharePoint sharing links (can expire), personal OneDrive links, library views instead of
+documents, links to files that are themselves part of the set (candidates for internal links), http
+instead of https, drive letters, and link text that shows a different address than the real target.
+
+`--check` can't sign in to SharePoint or other sites that need your Windows login, so those come back as
+CHECK MANUALLY; public web links and network paths are tested properly.
 
 ## Hosting: network drive vs SharePoint
 
@@ -182,6 +233,15 @@ All keys are optional. The PDF and Word scripts share most of them.
 }
 ```
 
+- `footer`: text for a thin bar fixed to the bottom of the page, e.g.
+  `"footer": "Official Agents Manual - <your wording>"`. Empty or missing = no bar. Can also be given as
+  `--footer "..."` on the command line. When printing, the text appears once at the end.
+- `link_base`: the address where the page is published, e.g.
+  `"https://agency.sharepoint.us/sites/X/SitePages/Manual.html"`. The **Link** next to each heading then
+  points to that address + the section (`...Manual.html#6111-22`), so copied links work for everyone.
+  Clicking it still just jumps to the section. Without `link_base` the link is the section only (`#6111-22`).
+- `section_id_prefix` / `chapter_id_prefix`: how section and chapter addresses start. Default `"s"` / `"ch"`
+  (`#s6111-22`, `#ch6111`); set both to `""` for plain numbers (`#6111-22`, `#6111`).
 - `toc_case`: capitalization of sidebar entries and chapter/section headings: `"title"` (default,
   Title Case; acronyms and codes like LIMS, SFL2, AM6311 are kept), `"upper"` (ALL CAPS) or `"asis"`.
 - `keep_upper`: extra words that must stay in capitals, e.g. `["NARCAN", "OCDETF"]` (2-4 letter acronyms
@@ -203,7 +263,8 @@ See `configs/lom_2021.json` for a complete working example.
 
 - `/` or `Ctrl+K` search; arrow keys and Enter pick a result; `F3` / `Shift+F3` step through every match.
 - Quotes force an exact phrase: `"chain of custody"`. Section numbers and codes work too: `7302.12`, `PRO-7305.22G`.
-- Hover a heading: **Link** copies a deep link to that section (`...Manual.html#s7302-12`);
+- Hover a heading: **Copy link** copies the address of that section (with `link_base`, the full SharePoint
+  address). If the browser or SharePoint blocks copying, a box shows the address selected; press Ctrl+C.
   **Original** (PDF only) opens that page of the original PDF.
 - `Ctrl+P` prints a clean copy without the sidebar. A dark theme is available (moon button).
 

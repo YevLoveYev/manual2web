@@ -6,6 +6,7 @@
 <title>__DOCTITLE__</title>
 <style>
 :root{
+  --fh:0px;
   --bg:#f6f5f2; --paper:#ffffff; --ink:#1d2330; --ink2:#4a5263; --ink3:#7a8191;
   --line:#e3e1db; --line2:#eeece7; --accent:#1f4e8c; --accent-soft:#e8eef7; --accent-ink:#163a6a;
   --mark:#ffe58a; --mark-strong:#ffc93c; --proc:#7a4b12; --proc-soft:#fbf3e6;
@@ -67,14 +68,29 @@ a{color:var(--accent)}
 .rmore{padding:10px 14px;font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line2)}
 
 /* ---------- layout ---------- */
-.side{position:fixed;top:var(--hh);bottom:0;left:0;width:var(--sw);overflow:auto;background:var(--paper);border-right:1px solid var(--line);padding:10px 0 40px;z-index:30;overscroll-behavior:contain}
-main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
+.side{position:fixed;top:var(--hh);bottom:var(--fh);left:0;width:var(--sw);overflow:auto;background:var(--paper);border-right:1px solid var(--line);padding:10px 0 40px;z-index:30;overscroll-behavior:contain}
+main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px calc(120px + var(--fh))}
+body.has-foot{--fh:28px}
+.foot{display:none;position:fixed;left:0;right:0;bottom:0;height:var(--fh);z-index:45;align-items:center;justify-content:center;padding:0 16px;
+  background:var(--paper);border-top:1px solid var(--line);color:var(--ink3);font-size:12px;line-height:1.2;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.has-foot .foot{display:flex}
 .content{max-width:860px;margin:0 auto}
 
 /* ---------- nav ---------- */
 .side .home{display:block;margin:4px 12px 10px;padding:8px 10px;border-radius:8px;text-decoration:none;color:var(--ink2);font-size:13.5px}
 .side .home:hover{background:var(--line2)}
 .ch{border-top:1px solid var(--line2)}
+.gbox{border-top:1px solid var(--line)}
+.gbtn{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;cursor:pointer;text-align:left;padding:13px 14px;font-size:12.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
+.gbtn:hover{background:var(--line2)}
+.gbtn span{flex:1}
+.gbtn .car{flex:none;width:16px;height:16px;color:var(--ink3);transition:transform .15s}
+.gbox.open > .gbtn .car{transform:rotate(90deg)}
+.gbody{display:none;padding-bottom:6px}
+.gbox.open > .gbody{display:block}
+.gbody .grp.g1{padding-top:8px}
+.gbody .ch{border-top:0}
 .grp{padding:16px 14px 6px;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);border-top:1px solid var(--line)}
 .grp.g1{padding:8px 14px 4px 18px;font-size:12.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink2);border-top:0}
 .grp.g2{padding:6px 14px 2px 26px;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink3);border-top:0}
@@ -166,23 +182,29 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
 /* heading tools */
 .htools{display:inline-flex;gap:2px;margin-left:8px;vertical-align:middle;opacity:0;transition:opacity .15s}
 .content :is(h1,h2,h3,h4):hover .htools,.htools:focus-within{opacity:1}
-.htools button{border:1px solid var(--line);background:var(--paper);color:var(--ink3);height:24px;padding:0 7px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:500;letter-spacing:0;text-transform:none;display:inline-flex;align-items:center;gap:4px;font-family:inherit}
-.htools button:hover{color:var(--accent);border-color:var(--accent)}
+.htools button,.htools a{border:1px solid var(--line);background:var(--paper);color:var(--ink3);height:24px;padding:0 7px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:500;letter-spacing:0;text-transform:none;display:inline-flex;align-items:center;gap:4px;font-family:inherit;text-decoration:none;line-height:1}
+.htools button:hover,.htools a:hover{color:var(--accent);border-color:var(--accent)}
 .htools svg{width:12px;height:12px}
 
 /* hit bar */
-.hitbar{position:fixed;bottom:20px;left:calc(var(--sw) + (100vw - var(--sw))/2);transform:translateX(-50%);background:var(--ink);color:var(--paper);border-radius:999px;padding:6px 6px 6px 16px;display:none;align-items:center;gap:6px;font-size:13px;box-shadow:var(--shadow);z-index:35}
+.hitbar{position:fixed;bottom:calc(20px + var(--fh));left:calc(var(--sw) + (100vw - var(--sw))/2);transform:translateX(-50%);background:var(--ink);color:var(--paper);border-radius:999px;padding:6px 6px 6px 16px;display:none;align-items:center;gap:6px;font-size:13px;box-shadow:var(--shadow);z-index:35}
 .hitbar.show{display:flex}
 .hitbar button{border:0;background:rgba(255,255,255,.12);color:inherit;width:30px;height:30px;border-radius:50%;cursor:pointer;display:grid;place-items:center}
 .hitbar button:hover{background:rgba(255,255,255,.25)}
 .hitbar svg{width:14px;height:14px}
 .hitbar .q{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
 
-.totop{position:fixed;right:22px;bottom:22px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--paper);box-shadow:var(--shadow);cursor:pointer;display:none;place-items:center;color:var(--ink2);z-index:34}
+.totop{position:fixed;right:22px;bottom:calc(22px + var(--fh));width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--paper);box-shadow:var(--shadow);cursor:pointer;display:none;place-items:center;color:var(--ink2);z-index:34}
 .totop.show{display:grid}
 .totop svg{width:18px;height:18px}
 .toast{position:fixed;top:calc(var(--hh) + 14px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
 .toast.show{opacity:1}
+.copybox{position:fixed;top:calc(var(--hh) + 12px);left:50%;transform:translateX(-50%);z-index:65;display:none;align-items:center;gap:10px;
+  background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:10px 12px;font-size:13px;color:var(--ink2);
+  width:min(760px,calc(100vw - 32px))}
+.copybox.show{display:flex}
+.copybox input{flex:1;min-width:0;height:32px;border:1px solid var(--accent);border-radius:6px;padding:0 8px;font:12.5px ui-monospace,Consolas,monospace;color:var(--ink);background:var(--bg)}
+.copybox kbd{font:11px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:4px;padding:0 4px;background:var(--bg)}
 
 /* pdf modal */
 .modal{position:fixed;inset:0;background:rgba(10,14,22,.55);z-index:70;display:none;align-items:center;justify-content:center;padding:24px}
@@ -201,9 +223,10 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
   .side{transform:translateX(-100%);transition:transform .2s;box-shadow:var(--shadow)}
   body.nav-open .side{transform:none}
   body.nav-open .scrim{display:block;position:fixed;inset:var(--hh) 0 0 0;background:rgba(10,14,22,.35);z-index:25}
-  main{margin-left:0;padding:calc(var(--hh) + 20px) 16px 100px}
-  .hitbar{left:50%;bottom:16px}
-  .totop{bottom:76px;right:16px}
+  main{margin-left:0;padding:calc(var(--hh) + 20px) 16px calc(100px + var(--fh))}
+  .foot{font-size:11px}
+  .hitbar{left:50%;bottom:calc(16px + var(--fh))}
+  .totop{bottom:calc(76px + var(--fh));right:16px}
   .tools .lbl{display:none}
 }
 @media (max-width:640px){
@@ -215,6 +238,7 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
 }
 @media print{
   .top,.side,.hitbar,.totop,.htools,.modal,.toast,.scrim{display:none!important}
+  body.has-foot .foot{position:static;display:block;border:0;border-top:1px solid #999;margin-top:24px;padding-top:6px;height:auto;white-space:normal;color:#444}
   main{margin:0;padding:0}
   body{background:#fff;color:#000;font-size:11pt}
   .cover{border:0;padding:0}
@@ -226,7 +250,7 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
 }
 </style>
 </head>
-<body>
+<body class="__BODYCLASS__">
 <header class="top">
   <button class="btn menu-btn" id="menuBtn" aria-label="Table of contents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   <div class="brand"><b>__TITLE__</b><span>__SUBTITLE__</span></div>
@@ -249,7 +273,7 @@ main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px 120px}
       <div class="org">__ORG__</div>
       <h1>__TITLE__</h1>
       <div class="meta">__META__<span id="stats"></span></div>
-      <div class="tips"><span><kbd>/</kbd> or <kbd>Ctrl</kbd>+<kbd>K</kbd> search</span><span><kbd>↑</kbd><kbd>↓</kbd> <kbd>Enter</kbd> pick a result</span><span><kbd>F3</kbd> / <kbd>Shift</kbd>+<kbd>F3</kbd> next / previous hit</span><span>Hover any heading to copy a link to it</span></div>
+      <div class="tips"><span><kbd>/</kbd> or <kbd>Ctrl</kbd>+<kbd>K</kbd> search</span><span><kbd>↑</kbd><kbd>↓</kbd> <kbd>Enter</kbd> pick a result</span><span><kbd>F3</kbd> / <kbd>Shift</kbd>+<kbd>F3</kbd> next / previous hit</span><span>Hover any heading and click <b>Copy link</b> to share it</span></div>
     </section>
 __CONTENT__
   </div>
@@ -261,6 +285,8 @@ __CONTENT__
 </div>
 <button class="totop" id="totop" aria-label="Back to top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
 <div class="toast" id="toast"></div>
+<div class="copybox" id="copybox" role="dialog" aria-label="Copy link"><span>Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy the link:</span><input id="copyinp" readonly><button class="btn" id="copyclose">Done</button></div>
+<footer class="foot" role="contentinfo">__FOOTER__</footer>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Original PDF">
   <div class="mbox">
     <div class="mhead"><b id="mtitle">Original PDF</b><span class="sp"></span>
@@ -275,6 +301,7 @@ __CONTENT__
 (function(){
 "use strict";
 var NAV = JSON.parse(document.getElementById('nav-data').textContent);
+var LINK_BASE = __LINKBASE__;  /* published address of this page (for heading links), or "" */
 var ORIG = __ORIG__;  /* {kind:'pdf'|'docx'|'none', name, mime, pages, offset} */
 function pageLabel(p){ var n = p - (ORIG.offset || 0); return n > 0 ? String(n) : 'cover' }
 var $ = function(id){return document.getElementById(id)};
@@ -292,12 +319,26 @@ var ICON_CAR = '<svg class="car" viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- build nav + cover cards ---------- */
 var navHTML = '<a class="home" href="#top">⌂ Back to top</a>';
-var cards = '', nSec = 0, nProc = 0, prevG = [];
+var cards = '', nSec = 0, nProc = 0, prevG = [], boxOpen = false;
+var anyGroups = NAV.some(function(c){ return c.g && c.g.length });
+function openBox(label){
+  navHTML += '<div class="gbox"><button class="gbtn" aria-expanded="false"><span>'+esc(label)+'</span>'+ICON_CAR+'</button><div class="gbody">';
+  boxOpen = true;
+}
+function closeBox(){ if (boxOpen){ navHTML += '</div></div>'; boxOpen = false } }
 NAV.forEach(function(ch){
-  var g = ch.g || [], changed = false;
-  if (!g.length && prevG.length){ navHTML += '<div class="grp g0">Other Chapters</div>'; prevG = []; }
-  for (var gi = 0; gi < Math.max(g.length, prevG.length); gi++){
-    if (changed || g[gi] !== prevG[gi]){ changed = true; if (g[gi]) navHTML += '<div class="grp g'+Math.min(gi,2)+'">'+esc(g[gi])+'</div>' }
+  var g = ch.g || [];
+  if (anyGroups && !g.length) g = ['Other Chapters'];
+  if (g[0] !== prevG[0]){                       /* new chapter group (line 4): one fold-out item */
+    closeBox();
+    if (g[0]) openBox(g[0]);
+    prevG = [g[0]];
+  }
+  for (var gi = 1; gi < Math.max(g.length, prevG.length); gi++){   /* subchapter labels (line 5...) shown once */
+    if (g[gi] !== prevG[gi]){
+      for (var gj = gi; gj < g.length; gj++) if (g[gj]) navHTML += '<div class="grp g'+Math.min(gj,2)+'">'+esc(g[gj])+'</div>';
+      break;
+    }
   }
   prevG = g;
   var h = '<div class="ch" data-ch="'+ch.id+'"><div class="chbtn"><a class="chlink" href="#'+ch.id+'">'+(ch.num ? '<span class="cn">'+esc(ch.num)+'</span>' : '')+'<span class="ct">'+esc(ch.t)+'</span></a><button class="cartog" aria-expanded="false" aria-label="Show or hide sections">'+ICON_CAR+'</button></div><div class="chbody">';
@@ -315,10 +356,13 @@ NAV.forEach(function(ch){
   navHTML += h;
   cards += '<a class="chcard" href="#'+ch.id+'"><span class="cn">'+ch.num+'</span><span><span class="ct">'+esc(ch.t)+'</span><div class="cs">'+(ch.secs.length?(ch.secs.filter(function(s){return s.l===1}).length)+' sections'+(ch.procs.length?' · '+ch.procs.length+' procedures':''):'Redacted in this edition')+'</div></span></a>';
 });
+closeBox();
 side.innerHTML = navHTML;
 $('stats').textContent = NAV.length+' chapters · '+nSec+' sections · '+nProc+' procedures & tasks';
 
 side.addEventListener('click', function(e){
+  var gb = e.target.closest('.gbtn');
+  if (gb){ var box = gb.parentNode; var go = box.classList.toggle('open'); gb.setAttribute('aria-expanded', go); return; }
   var t = e.target.closest('.cartog');
   if (t){ var c = t.closest('.ch'); var o = c.classList.toggle('open'); t.setAttribute('aria-expanded', o); return; }
   var cl = e.target.closest('.chlink');
@@ -336,7 +380,7 @@ var PDF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 var heads = Array.prototype.slice.call(content.querySelectorAll('h1[id],h2[id],h3[id],h4[id]'));
 heads.forEach(function(h){
   var t = document.createElement('span'); t.className = 'htools';
-  t.innerHTML = '<button data-act="link" title="Copy link to this section">'+LINK_SVG+'Link</button>' + (ORIG.kind === 'pdf' ? '<button data-act="pdf" title="Show this page in the original PDF">'+PDF_SVG+'Original</button>' : '');
+  t.innerHTML = '<a class="hl" data-id="'+h.id+'" href="'+(LINK_BASE ? LINK_BASE : '')+'#'+h.id+'" title="Copy the link to this section">'+LINK_SVG+'Copy link</a>' + (ORIG.kind === 'pdf' ? '<button data-act="pdf" title="Show this page in the original PDF">'+PDF_SVG+'Original</button>' : '');
   h.appendChild(t);
 });
 function pageOf(el){
@@ -353,29 +397,46 @@ function pageOf(el){
   return 1;
 }
 content.addEventListener('click', function(e){
+  var hl = e.target.closest('.htools a.hl');
+  if (hl){ e.preventDefault(); copyLink(hl.href); return; }   /* click = copy the full address (no navigation) */
   var b = e.target.closest('.htools button');
   if (b){
     e.preventDefault();
-    var h = b.closest('[id]');
-    if (b.dataset.act === 'link') copyLink(h.id); else openPdf(pageOf(h));
+    openPdf(pageOf(b.closest('[id]')));
     return;
   }
   var pg = e.target.closest('.pg span');
   if (pg) openPdf(+pg.parentNode.dataset.p);
 });
-function copyLink(id){
-  var url = location.href.split('#')[0] + '#' + id;
-  history.replaceState(null,'','#'+id);
-  function done(){ toast('Link copied — paste it in an email or chat') }
-  if (navigator.clipboard && window.isSecureContext){
-    navigator.clipboard.writeText(url).then(done, fallback);
-  } else fallback();
-  function fallback(){
-    var ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); done(); } catch(err){ toast('Copy this link: '+url) }
+function copyLink(url){
+  /* 1) the classic copy command (works in most places, including many embedded pages)
+     2) the modern clipboard API, where allowed
+     3) if both are blocked (e.g. by SharePoint security): show the address selected, ready for Ctrl+C */
+  var ok = false;
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = url; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.top = '-1000px';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, url.length);
+    ok = document.execCommand('copy');
     ta.remove();
-  }
+  } catch (err) { ok = false }
+  if (ok){ toast('Link copied'); return }
+  try {
+    var pol = document.permissionsPolicy || document.featurePolicy;
+    var allowed = !(pol && pol.allowsFeature && !pol.allowsFeature('clipboard-write'));
+    if (allowed && navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(url).then(function(){ toast('Link copied') }, function(){ showCopyBox(url) });
+      return;
+    }
+  } catch (err) {}
+  showCopyBox(url);
 }
+function showCopyBox(url){
+  var box = $('copybox'), inp = $('copyinp');
+  inp.value = url; box.classList.add('show');
+  setTimeout(function(){ inp.focus(); inp.select() }, 0);
+}
+function hideCopyBox(){ $('copybox').classList.remove('show') }
 var toastT;
 function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove('show')},2200) }
 
@@ -400,6 +461,8 @@ function spy(){
       a.classList.add('active');
       var ch = a.closest('.ch'), sb = a.closest('.sub');
       if (ch && !ch.classList.contains('open')){ ch.classList.add('open'); ch.querySelector('.cartog').setAttribute('aria-expanded', true) }
+      var gbx = a.closest('.gbox');
+      if (gbx && !gbx.classList.contains('open')){ gbx.classList.add('open'); gbx.querySelector('.gbtn').setAttribute('aria-expanded', true) }
       if (sb && !sb.classList.contains('open')) sb.classList.add('open');
       var r = a.getBoundingClientRect(), sr = side.getBoundingClientRect();
       if (r.top < sr.top + 40 || r.bottom > sr.bottom - 40) side.scrollTop += r.top - sr.top - sr.height/3;
@@ -571,6 +634,28 @@ document.addEventListener('keydown', function(e){
   else if (e.key === 'Escape' && $('modal').classList.contains('open')) closePdf();
 });
 
+/* In-page links (sidebar, headings, cross-references) scroll with script instead of navigating to "#id".
+   That keeps them working where the page is embedded or sandboxed (e.g. SharePoint), which blocks navigation. */
+function goTo(id, push){
+  var el = document.getElementById(id);
+  if (!el) return false;
+  var target = el.classList.contains('anchor') ? (el.nextElementSibling || el) : el;
+  var top = target.getBoundingClientRect().top + window.scrollY - (parseInt(getComputedStyle(document.documentElement).scrollPaddingTop) || 76);
+  window.scrollTo({top: Math.max(0, top), behavior: 'auto'});
+  try { if (push) history.pushState(null, '', '#' + id); } catch (err) {}
+  target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash');
+  return true;
+}
+document.addEventListener('click', function(e){
+  if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  var a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  var id = decodeURIComponent(a.getAttribute('href').slice(1));
+  if (id === 'top') { e.preventDefault(); window.scrollTo({top: 0}); try { history.pushState(null, '', '#top') } catch (err) {} return; }
+  if (goTo(id, true)) e.preventDefault();
+});
+window.addEventListener('popstate', function(){ var id = decodeURIComponent(location.hash.slice(1)); if (id) goTo(id, false); });
+
 /* flash target when following an in-page link */
 function flashHash(){
   var id = decodeURIComponent(location.hash.slice(1)); if (!id) return;
@@ -601,6 +686,12 @@ function openPdf(p){
 }
 function closePdf(){ $('modal').classList.remove('open'); $('mframe').src = 'about:blank' }
 $('mclose').onclick = closePdf;
+$('copyclose').onclick = hideCopyBox;
+$('copyinp').addEventListener('keydown', function(e){
+  if (e.key === 'Escape' || e.key === 'Enter') hideCopyBox();
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') setTimeout(function(){ hideCopyBox(); toast('Link copied') }, 50);
+});
+document.addEventListener('mousedown', function(e){ if (!e.target.closest('#copybox') && !e.target.closest('.htools')) hideCopyBox() });
 $('modal').addEventListener('mousedown', function(e){ if (e.target === this) closePdf() });
 $('mnew').onclick = function(){ window.open(getPdfURL() + '#page=' + curPdfPage, '_blank') };
 function downloadOrig(){ var a = document.createElement('a'); a.href = getPdfURL(); a.download = ORIG.name; document.body.appendChild(a); a.click(); a.remove() }

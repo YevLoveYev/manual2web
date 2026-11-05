@@ -70,7 +70,8 @@ ACRONYMS = {'DEA', 'US', 'USA', 'U.S.', 'DOJ', 'FBI', 'ATF', 'DHS', 'CBP', 'ICE'
             'GS', 'IT', 'PII', 'FOIA', 'CFR', 'USC', 'DC', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'XI', 'XII',
             'HIPAA', 'NADDIS', 'OCDETF', 'HIDTA', 'SWGDRUG', 'FINCEN', 'INTERPOL', 'EPIC', 'SIU', 'OIG', 'GAO',
             'DOD', 'IRS', 'USMS', 'USCG', 'HSI', 'NFLIS', 'CSA', 'CSOS', 'ARCOS', 'DTO', 'TCO', 'AUSA', 'USAO',
-            'OCONUS', 'CONUS', 'TDY', 'PCS', 'SES', 'POC', 'NCIS', 'DIR', 'ROI', 'MOU', 'MOA', 'SOD'}
+            'OCONUS', 'CONUS', 'TDY', 'PCS', 'SES', 'POC', 'NCIS', 'DIR', 'ROI', 'MOU', 'MOA', 'SOD',
+            'LSD', 'DMT', 'DET', 'PCP', 'THC', 'GHB', 'MDMA', 'MDA', 'STP', 'DOM', 'LAAM', 'NIK', 'UV', 'ML', 'CBD'}
 
 # Words with capitals inside them that are correct. Add your own with "keep_case": [...] in a config file.
 CAMEL_WORDS = {'SharePoint', 'PowerPoint', 'PowerShell', 'OneDrive', 'OneNote', 'YouTube', 'LinkedIn', 'iPhone',
@@ -92,15 +93,47 @@ def _cap_first(word):
                   + m.group(2).upper(), word)
 
 
+def _case_core(core, all_caps):
+    """Case one word (no spaces, no hyphens). Returns (text, is_special) - special words are never lowercased."""
+    if not core:
+        return core, True
+    poss = ''
+    m = re.match(r"^(.*?)(['’][sS])$", core)              # possessive: US's, agent's
+    if m and m.group(1):
+        core, poss = m.group(1), m.group(2).lower()
+    up = core.upper()
+    letters = re.sub(r'[^A-Za-z]', '', core)
+    if re.search(r'\d', core):                                  # 7302.12, SFL2, AM6311, 12
+        return core + poss, True
+    if '.' in core.strip('.') or (core.endswith('.') and len(letters) == 1 and False):
+        if re.match(r'^(?:[A-Za-z]\.){1,}[A-Za-z]?\.?$', core) and len(letters) <= 4:   # U.S., U.S, u.s., D.C.
+            if core.lower() in ('e.g.', 'i.e.', 'e.g', 'i.e'):
+                return core.lower() + poss, True
+            return up + poss, True
+    plain = core.rstrip('.')
+    pup = plain.upper()
+    if pup in ACRONYMS:                                         # DEA, US, LIMS (also 'us' after all-caps text)
+        if all_caps or plain.isupper():
+            return pup + core[len(plain):] + poss, True
+    if len(pup) > 2 and pup.endswith('S') and pup[:-1] in ACRONYMS and plain[-1] == 's' and plain[:-1].isupper():
+        return plain + core[len(plain):] + poss, True           # SOPs, IDs, TFOs
+    if not all_caps and re.match(r'^[A-Z]{2,4}s?$', plain):     # other short acronyms in normal text: NCIC
+        return core + poss, True
+    hit = plain if plain in CAMEL_WORDS else next((c for c in CAMEL_WORDS if c.lower() == plain.lower()), None)
+    if hit and not all_caps:                                    # SharePoint, iPhone
+        return hit + core[len(plain):] + poss, True
+    return core.lower() + poss, False
+
+
 def toc_case(s, mode='title'):
     """Capitalization for table-of-contents entries and headings.
 
     title (default): standard Title Case.
         'reviewing approving and posting documents - lab' -> 'Reviewing Approving and Posting Documents - Lab'
         Kept as written: codes with digits (7302.12, SFL2, AM6311, DEA-12), acronyms (DEA, U.S., LIMS, PPE),
-        known CamelCase words (SharePoint, iPhone).
+        known CamelCase words (SharePoint, iPhone) - also inside hyphenated words (US-Mexico, non-US).
         Fixed: stray capitals (naLOXone, privilEges -> Naloxone, Privileges), a shouted word inside normal text
-        (Foreign Counterpart ASSISTANCE -> Assistance), U.S. stays U.S., agent's never becomes Agent'S.
+        (Foreign Counterpart ASSISTANCE -> Assistance), u.s. -> U.S., agent's never becomes Agent'S.
     upper: ALL CAPS.   asis: unchanged."""
     if not s or mode == 'asis':
         return s
@@ -111,37 +144,27 @@ def toc_case(s, mode='title'):
     out = []
     for i, wd in enumerate(words):
         lead = re.match(r'^[^\w]*', wd).group(0)
-        trail = re.search(r'[^\w.]*$', wd).group(0)
-        core = wd[len(lead):len(wd) - len(trail)] if trail else wd[len(lead):]
-        if not re.match(r'^(?:[A-Za-z]\.){2,}', core):
-            core = core.rstrip('.')
-        if not core:
+        rest = wd[len(lead):]
+        trail = re.search(r'[),;:!?"”\]]*$', rest).group(0)
+        body = rest[:len(rest) - len(trail)] if trail else rest
+        if not body:
             out.append(wd)
             continue
-        up = core.upper()
-        if re.search(r'\d', core):                                             # 7302.12, SFL2, AM6311, DEA-12
-            out.append(wd)
-            continue
-        if re.match(r'^(?:[A-Za-z]\.){2,}[A-Za-z]?\.?$', core):                # U.S., D.C., e.g.
-            out.append(wd.replace(core, up) if (all_caps or core[0].isupper()) else wd)
-            continue
-        if up in ACRONYMS or (up.endswith('S') and up[:-1] in ACRONYMS and len(up) > 2 and core[-1] == 's'):
-            if all_caps or core[:-1].isupper() or core.isupper():                # DEA, LIMS, SOPs, IDs
-                out.append(wd.replace(core, up if core.isupper() or all_caps else core))
-                continue
-        if not all_caps and re.match(r'^[A-Z]{2,4}s?$', core):                  # other short acronyms: NCIC, TFOs
-            out.append(wd)
-            continue
-        hit = core if core in CAMEL_WORDS else next((c for c in CAMEL_WORDS if c.lower() == core.lower()), None)
-        if hit and not all_caps:                                               # SharePoint, iPhone (also fixes 'sharepoint')
-            out.append(wd.replace(core, hit))
-            continue
-        lw = wd.lower()                                                        # everything else: normal word
+        # hyphenated / slashed compounds: case each part (US-Mexico, non-US, follow-up, US/Canada)
+        parts = re.split(r'([-/–—])', body)
         first_or_last = i == 0 or i == len(words) - 1 or (out and out[-1].endswith((':', '-', '–', '—')))
-        if core.lower() in SMALL_WORDS and not first_or_last:
-            out.append(lw)
-            continue
-        out.append(_cap_first(lw))
+        cased = []
+        for k, p in enumerate(parts):
+            if k % 2 == 1 or not p:
+                cased.append(p)
+                continue
+            txt, special = _case_core(p, all_caps)
+            if not special:
+                is_small = txt.rstrip('.') in SMALL_WORDS and len(parts) == 1 and not first_or_last
+                if not is_small:
+                    txt = _cap_first(txt)
+            cased.append(txt)
+        out.append(lead + ''.join(cased) + trail)
     return ' '.join(out)
 
 
@@ -212,7 +235,8 @@ def resolve_refs(body, targets):
 # Final assembly
 # ----------------------------------------------------------------------------
 def assemble(out_path, nav, content_html, title, subtitle='', org='', meta='',
-             original_bytes=None, original_name='', original_kind='none', pages=0, page_offset=0):
+             original_bytes=None, original_name='', original_kind='none', pages=0, page_offset=0, footer='',
+             link_base=''):
     """Write the single self-contained HTML file.
 
     nav: list of chapters:
@@ -235,6 +259,9 @@ def assemble(out_path, nav, content_html, title, subtitle='', org='', meta='',
         '__SUBTITLE__': esc(subtitle),
         '__ORG__': esc(org),
         '__META__': esc(meta) + (' · ' if meta else ''),
+        '__FOOTER__': esc(footer or ''),
+        '__LINKBASE__': js((link_base or '').split('#')[0]),
+        '__BODYCLASS__': 'has-foot' if footer else '',
         '__ORIG__': js(orig),
         '__NAV__': js(nav),
     }

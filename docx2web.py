@@ -66,6 +66,10 @@ def on(el):
 
 DEFAULTS = {
     "title": None, "subtitle": "", "org": "", "meta": "",
+    "footer": "",                  # thin bar at the bottom of the page, e.g. "Official manual - internal use only"
+    "link_base": "",               # published address of the page; heading "Link" = link_base + "#section"
+    "section_id_prefix": "s",      # section addresses: "s" -> #s6111-22, "" -> #6111-22
+    "chapter_id_prefix": "ch",     # chapter addresses: "ch" -> #ch6111, "" -> #6111
     "chapter_level": "auto",       # heading level used for chapters (1 = Heading 1)
     "chapter_regex": r"^(?:CHAPTER|Chapter|PART|Part)\s+(\w+)[\s:.-]*(.*)$",
     "section_regex": r"^(\d+(?:\.\d+)*)\s+(.*)$",    # pulls "7302.12" out of typed heading text
@@ -78,9 +82,25 @@ DEFAULTS = {
     # General Policies / <chapter title> / 6211.  Read as: organization, manual, group(s), title, number.
     "header_block": True,
     "header_number_regex": r"^(?:(?:Chapter|CHAPTER|Section|SECTION)\s+)?(?:[A-Z]{1,3}\s?)?(\d{3,5}(?:\.\d+)*)[A-Za-z]?$",
-    "header_max_lines": 10,
+    "header_max_lines": 16,
+    "header_number_title_regex": r"^(\d{4,5})\s+([A-Z][^a-z]{2,})$",   # "6111 AUTHORITY" on one line (not "6114.1 Purpose")
+    "header_levels": 2,
+    # Appendix files (and files without Heading styles): an ALL-CAPS line on its own is a section,
+    # e.g. "AMPHETAMINES:" - except these labels, which stay as text inside the section
+    "caps_headings": "auto",          # "auto" = appendices + files without Heading styles, true = always, false = never
+    "caps_heading_ignore": r"^(TEST\s+(MATERIALS?|PROCEDURES?|RESULTS?)|COLOU?R\s+REACTIONS?|CAUTION|NOTE|NOTES|WARNING|"
+                           r"EXAMPLES?|SEE\s+ALSO|PROCEDURES?|MATERIALS?|REFERENCES?|RESULTS?|EXCEPTION)\s*:?$",
+    # in appendix files these are labels inside a section even when Word styles them as headings
+    "appendix_labels": r"^(TEST\s+(MATERIALS?|PROCEDURES?|RESULTS?)|COLOU?R\s+REACTIONS?|CAUTION|NOTES?|WARNING)\b\s*:?",
+    "appendix_flat": True,            # all sections of an appendix at the same level (no nesting)               # header lines used for the sidebar (chapter, sub-chapter); the rest is the title
     "appendix_regex": r"^(?:Appendix|APPENDIX|Annex|ANNEX|Attachment|ATTACHMENT)\s+([A-Z]{1,2}|\d{1,2})\b\s*[:.\-–—]?\s*(.*)$",
     "appendix_group": "Appendices",   # sidebar heading for appendix files
+    "manual_names": [],               # other spellings of the manual's name to ignore in header blocks
+    "org_names": [],                  # other spellings of the organization to ignore in header blocks
+    # lines in the header block that are never a chapter/title (banners, boilerplate); regular expressions
+    "header_ignore": [r"\bsensitive\b", r"property of", r"disseminat", r"department of justice",
+                      r"for official use only", r"\bloaned\b", r"^page\s+\d+", r"^\d{1,2}/\d{1,2}/\d{2,4}$",
+                      r"^dea$", r"^u\.?\s?s\.?$"],
     "toc_case": "title",        # sidebar/chapter titles: "title" (Title Case), "upper" (ALL CAPS) or "asis"
     "fallback_headings": "auto",   # if the document uses no Heading styles: detect bold numbered lines
     "heading_patterns": [          # used by the fallback; first match wins
@@ -295,6 +315,8 @@ class Converter(object):
         self.cfg = cfg
         self.prefix = prefix   # added to Word bookmark/footnote ids so merged files never clash
         self.skip = set()      # body elements already used (e.g. the header block) - not rendered
+        self.caps_headings = False
+        self.cell_depth = 0
         self.linker = wv.RefLinker(cfg.get('autolink'))
         self.counters = {}     # abstractNumId -> [count per level]
         self.num_started = set()
@@ -630,10 +652,20 @@ class Converter(object):
                 if re.match(hp['regex'], text):
                     level = int(hp['level'])
                     break
+        if level and self.caps_headings and self.cfg.get('appendix_labels') and re.match(self.cfg['appendix_labels'], text, re.I):
+            # "TEST MATERIALS:" etc. styled as a Word heading: keep it as a bold label in the text
+            blocks.append({'type': 'p', 'l': 0, 'html': h if '<strong>' in h else '<strong>%s</strong>' % h})
+            return blocks + extra
+        if not level and self.caps_headings and not self.cell_depth and not (num and (num['label'] or num['bullet'])):
+            letters = re.sub(r'[^A-Za-z]', '', text)
+            if (len(letters) >= 3 and letters.isupper() and len(text) <= 120 and not re.match(r'^[\dA-Z][.)]\s', text)
+                    and not re.match(self.cfg['caps_heading_ignore'], text)):
+                level = 2
+                text = text.rstrip(' :')
         if level:
             label = num['label'] if num and not num['bullet'] else ''
             blocks.append({'type': 'heading', 'level': level, 'label': label.strip().rstrip('.') if label else '',
-                           'text': text, 'html': h})
+                           'text': text.rstrip(' :') or text, 'html': h})
             return blocks + extra
         if num and (num['label'] or num['bullet']):
             blocks.append({'type': 'li', 'l': num['ilvl'], 'marker': num['label'], 'html': h})
@@ -659,7 +691,9 @@ class Converter(object):
                 span = int(wattr(tcpr.find(w('gridSpan')), 'val', '1') or 1) if tcpr is not None and tcpr.find(w('gridSpan')) is not None else 1
                 vm = tcpr.find(w('vMerge')) if tcpr is not None else None
                 vmerge = None if vm is None else (wattr(vm, 'val') or 'continue')
+                self.cell_depth += 1
                 inner = self.render(self.blocks(tc), in_cell=True)
+                self.cell_depth -= 1
                 cells.append({'col': col, 'span': span, 'vmerge': vmerge, 'html': inner, 'rowspan': 1})
                 col += span
             rows.append({'hdr': is_hdr, 'cells': cells})
@@ -746,7 +780,7 @@ class Page(object):
         wv.configure_case(cfg)
 
     def start_chapter(self, num, title, groups=None, word='Chapter'):
-        prefix = 'app-' if word == 'Appendix' else 'ch'
+        prefix = 'app-' if word == 'Appendix' else self.cfg.get('chapter_id_prefix', 'ch')
         cid = prefix + re.sub(r'\W+', '-', num).lower() if num else wv.slug(title, self.used)
         if num and cid in self.used:
             cid = wv.slug('ch-' + (title or num), self.used)
@@ -754,6 +788,8 @@ class Page(object):
         cur = {'id': cid, 'num': num, 't': self.case(title or ((word + ' ' + num) if num else word)),
                'secs': [], 'exs': [], 'procs': []}
         groups = [self.case(g) for g in (groups or [])]
+        if num and word != 'Appendix':
+            self.targets['section'].setdefault(num, cid)     # "AM 6211" links to the chapter itself
         if groups:
             cur['g'] = groups
         self.nav.append(cur)
@@ -800,9 +836,9 @@ class Page(object):
             if mex:
                 hid = wv.num_id(mex.group(1), self.used, 'ex')
                 self.targets['exhibit'][mex.group(1)] = hid
-                cur['exs'].append({'id': hid, 'num': mex.group(1), 't': wv.smart_title(mex.group(2) or text), 'l': 2})
+                cur['exs'].append({'id': hid, 'num': mex.group(1), 't': self.case(mex.group(2) or text), 'l': 2})
                 self.html.append('<h2 id="%s" class="exhibit"><span class="num">%s</span> %s</h2>'
-                                 % (hid, html.escape(text[:mex.end(1)]), html.escape(wv.smart_title(mex.group(2)))))
+                                 % (hid, html.escape(text[:mex.end(1)]), html.escape(self.case(mex.group(2)))))
                 continue
             if mpr:
                 hid = wv.num_id(mpr.group(1), self.used, '')
@@ -811,14 +847,14 @@ class Page(object):
                 self.html.append('<h2 id="%s" class="proc"><span class="num">%s</span> %s</h2>'
                                  % (hid, html.escape(mpr.group(1)), html.escape(mpr.group(2) or text)))
                 continue
-            hid = wv.num_id(num, self.used) if num else wv.slug(title, self.used)
+            hid = wv.num_id(num, self.used, self.cfg.get('section_id_prefix', 's')) if num else wv.slug(title, self.used)
             if num:
                 self.targets['section'].setdefault(num, hid)
             hl = min(depth + 1, 5)
             # keep bookmarks that were inside the heading so Word cross-references still land here
             bms = ''.join(re.findall(r'<span id="[^"]+"></span>', b['html']))
             if depth <= 3:
-                cur['secs'].append({'id': hid, 'num': num, 't': wv.smart_title(title), 'l': max(1, depth)})
+                cur['secs'].append({'id': hid, 'num': num, 't': self.case(title), 'l': max(1, depth)})
             tag = 'h%d' % hl if hl <= 4 else 'h5'
             self.html.append('<%s id="%s"%s>%s%s%s</%s>' % (
                 tag, hid, ' class="minor"' if tag == 'h5' else '', bms,
@@ -841,7 +877,7 @@ class Page(object):
         body = '\n'.join(x for x in self.html if x)
         body, nlinks = wv.resolve_refs(body, self.targets)
         size = wv.assemble(out_path, self.nav, body, title, self.cfg['subtitle'], self.cfg['org'], self.cfg['meta'],
-                           original_kind='none')
+                           original_kind='none', footer=self.cfg.get('footer', ''), link_base=self.cfg.get('link_base', ''))
         nav = self.nav
         log('  %d chapters, %d sections, %d exhibits, %d procedures; %d pictures%s; %d footnotes; %d cross-reference links'
             % (len(nav), sum(len(c['secs']) for c in nav), sum(len(c['exs']) for c in nav),
@@ -854,9 +890,30 @@ class Page(object):
 DECOR = '*_#•·~ \t'
 
 
+_SKIP_TAGS = None
+
+
 def _para_text(p):
-    """Plain text of a paragraph, without decoration such as **6126** or *6126."""
-    t = re.sub(r'\s+', ' ', ''.join(t.text or '' for t in p.iter(w('t')))).strip()
+    """Plain text of a paragraph, without decoration such as **6126** or *6126.
+    Text inside pictures, logos and text boxes is left out; line breaks and tabs count as spaces."""
+    global _SKIP_TAGS
+    if _SKIP_TAGS is None:
+        _SKIP_TAGS = {w('drawing'), w('pict'), w('object'), w('txbxContent'), '{%s}AlternateContent' % MC,
+                      w('del'), w('instrText'), w('delText')}
+    out = []
+
+    def walk(el):
+        for c in el:
+            if c.tag in _SKIP_TAGS:
+                continue
+            if c.tag == w('t'):
+                out.append(c.text or '')
+            elif c.tag in (w('br'), w('cr'), w('tab')):
+                out.append(' ')
+            else:
+                walk(c)
+    walk(p)
+    t = re.sub(r'\s+', ' ', ''.join(out)).strip()
     return t.strip(DECOR).strip()
 
 
@@ -875,6 +932,32 @@ def _top_lines(container):
                 yield el, lines
 
 
+def trailing_ignorable(container, after_el, limit=4):
+    """Paragraphs right after the number line that only repeat the organization / manual name / a banner."""
+    out, seen = [], False
+    for el, texts in _top_lines(container):
+        if not seen:
+            seen = el is after_el
+            continue
+        if not texts:
+            out.append(el)
+            continue
+        if len(out) >= limit or el.tag != w('p') or split_header_lines(texts, _CFG[0])[2]:
+            break
+        out.append(el)
+    # keep blank paragraphs only if a stray line followed them
+    while out and not _top_text(out[-1]):
+        out.pop()
+    return out
+
+
+def _top_text(el):
+    return _para_text(el) if el.tag == w('p') else 'x'
+
+
+_CFG = [dict()]
+
+
 def find_header_block(dx, cfg):
     """Look for the header block at the top of the body (or in the page header).
 
@@ -883,8 +966,10 @@ def find_header_block(dx, cfg):
     Appendix files: an "Appendix D" line; the title is on the same line or the next line with text.
         Drug Enforcement Administration / Agents Manual / Appendix D / <title>
     Returns (info, elements_to_skip) or (None, [])."""
+    _CFG[0] = cfg
     rx = re.compile(cfg['header_number_regex'])
     arx = re.compile(cfg['appendix_regex']) if cfg.get('appendix_regex') else None
+    ntx = re.compile(cfg['header_number_title_regex']) if cfg.get('header_number_title_regex') else None
     maxn = int(cfg['header_max_lines'])
 
     def scan(container):
@@ -905,11 +990,18 @@ def find_header_block(dx, cfg):
                         return ('appendix', lines[:-1], ma.group(1), ma.group(2).strip(), used)
                     app = (lines[:-1], ma.group(1))
                     continue
+                mt = ntx.match(t) if ntx else None
+                if mt and len(lines) >= 2 and not rx.match(t):
+                    # "6111 AUTHORITY": number and title on the same line
+                    if len(texts) - k - 1 > 0:
+                        used.remove(el)
+                    return ('chapter', lines[:-1] + [mt.group(2)], mt.group(1), used)
                 m = rx.match(t)
                 if m and len(lines) >= 2:
                     # don't hide a table/content control that has real content after the number line
                     if len(texts) - k - 1 > 0:
                         used.remove(el)
+                    used.extend(trailing_ignorable(container, el))
                     return ('chapter', lines[:-1], m.group(1).replace(' ', ''), used)
                 if len(lines) >= maxn:
                     return None
@@ -945,18 +1037,76 @@ def find_header_block(dx, cfg):
         return None, []
     if found[0] == 'appendix':
         _, before, letter, title, _u = found
-        info = {'kind': 'appendix', 'number': letter.upper() if len(letter) == 1 else letter, 'title': title}
-        info['org'] = before[0] if len(before) >= 2 else ''
-        info['manual'] = before[1] if len(before) >= 2 else (before[0] if before else '')
-        info['groups'] = []
+        org, manual, rest = split_header_lines(before, cfg)
+        info = {'kind': 'appendix', 'number': letter.upper() if len(letter) == 1 else letter, 'title': title,
+                'org': org, 'manual': manual, 'groups': []}
         return info, skip
     _, before, num, _u = found
-    info = {'kind': 'chapter', 'number': num, 'title': before[-1] if before else ''}
-    rest = before[:-1]
-    info['org'] = rest[0] if len(rest) >= 3 else ''
-    info['manual'] = rest[1] if len(rest) >= 3 else (rest[0] if len(rest) == 2 else '')
-    info['groups'] = rest[2:] if len(rest) >= 3 else (rest[1:] if len(rest) == 2 else rest)
+    org, manual, rest = split_header_lines(before, cfg)
+    # first lines = chapter / sub-chapter (header_levels of them); everything after = the document title,
+    # which may be wrapped over two lines ("... AND OTHER REPORTABLE" / "INCIDENTS")
+    levels = int(cfg.get('header_levels') or 2)
+    ng = min(levels, max(len(rest) - 1, 0))
+    title = ' '.join(rest[ng:]).strip()
+    info = {'kind': 'chapter', 'number': num, 'title': title, 'org': org, 'manual': manual, 'groups': rest[:ng]}
     return info, skip
+
+
+ORG_WORDS = re.compile(r'\b(administration|agency|department|bureau|division|command|service)\b', re.I)
+
+
+def _norm(t):
+    return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()
+
+
+def split_header_lines(lines, cfg):
+    """Header lines -> (organization, manual name, remaining lines).
+
+    Never used as chapter / sub-chapter / title:
+      * banner and boilerplate lines ("DEA SENSITIVE", "This manual is the property of ...", "U.S. Department of
+        Justice", ...) - see "header_ignore" in the config
+      * any line naming the organization ("Drug Enforcement Administration", "... Agency", or the config's "org")
+      * any line that is the manual's name ("Agents Manual", "Agent Manual", "Agent's Manual", the config's "title")
+      * blank lines
+    What remains, in order, is chapter, sub-chapter, ..., document title. "CHAPTER 61 GENERAL" and
+    "Subchapter 611 Authority and Conduct" become "General" and "Authority and Conduct"."""
+    manual_names = set(_norm(x) for x in ([cfg.get('title')] + list(cfg.get('manual_names') or [])) if x)
+    org_names = set(_norm(x) for x in ([cfg.get('org')] + list(cfg.get('org_names') or [])) if x)
+    ignore = [re.compile(p, re.I) for p in (cfg.get('header_ignore') or [])]
+
+    def singular(n):
+        return re.sub(r'\b(\w+?)s\b', r'\1', n)
+
+    def is_manual(t):
+        n = _norm(t)
+        return bool(n) and (n in manual_names or singular(n) in set(singular(m) for m in manual_names)
+                            or re.search(r'\bmanual$', n) is not None)
+
+    def is_org(t):
+        n = _norm(t)
+        return bool(n) and (any(o and o in n for o in org_names)
+                            or re.search(r'\bdrug enforcement (administration|agency)\b', n) is not None)
+
+    org = manual = ''
+    rest = []
+    for x in lines:
+        if not x.strip() or any(p.search(x) for p in ignore):
+            continue
+        if is_org(x):
+            org = org or x
+            continue
+        if is_manual(x):
+            manual = manual or x
+            continue
+        rest.append(x)
+    # another organization name on the first line (e.g. "Bureau of ..."), only when it clearly is one
+    if not org and len(rest) >= 2 and ORG_WORDS.search(rest[0]) and len(rest[0].split()) <= 6 \
+            and not re.match(r'^(chapter|subchapter|part|section)\b', rest[0], re.I):
+        org = rest.pop(0)
+    # "CHAPTER 61 GENERAL" -> "GENERAL", "Subchapter 611 Authority and Conduct" -> "Authority and Conduct"
+    rest = [re.sub(r'^(?:sub-?)?(?:chapter|part)\s+[\dA-Z]+(?:\.\d+)*\s*[:.\-–—]?\s*', '', x, flags=re.I) or x
+            for x in rest]
+    return org, manual, rest
 
 
 def read_document(path, cfg, prefix='', header=False):
@@ -966,6 +1116,9 @@ def read_document(path, cfg, prefix='', header=False):
     if header:
         hdr, skip = find_header_block(dx, cfg)
         cv.skip = set(skip)
+    mode = cfg.get('caps_headings', 'auto')
+    cv.caps_headings = (mode is True) or (mode == 'auto' and (
+        (hdr is not None and hdr.get('kind') == 'appendix') or not cv.has_heading_styles))
     blocks = cv.blocks(dx.doc.find(w('body')))
     cv.header = hdr
     props = {}
@@ -1068,13 +1221,21 @@ def convert_many(paths, out_path, cfg, title=None, fallback_title='Manual'):
                 orgs[hdr['org']] = orgs.get(hdr['org'], 0) + 1
             heads = [b for b in blocks if b['type'] == 'heading']
             chap = (min(b['level'] for b in heads) - 1) if heads else 0
+            if is_app and cfg.get('appendix_flat', True):
+                for hb in heads:          # every section of an appendix is a direct entry under it
+                    hb['level'] = chap + 1
         else:
             if cfg.get('header_block'):
                 no_header.append(os.path.basename(path))
             heading_title, chap = top_heading_as_title(blocks)
             ctitle = clean_chapter_title(title_text or heading_title or props.get('title', ''), num, page.chap_rx)
+        # safety net: a title must never be the organization or the manual's name
+        if ctitle and not split_header_lines([ctitle], cfg)[2]:
+            log('  warning: %s - title "%s" looks like the organization/manual name; check its first lines'
+                % (os.path.basename(path), ctitle))
+            ctitle = ''
         if not ctitle:
-            ctitle = os.path.splitext(os.path.basename(path))[0]
+            ctitle = ('%s %s' % ('Appendix' if is_app else 'Chapter', num)) if num else os.path.splitext(os.path.basename(path))[0]
         sort_key = ((2, (), num.lower(), key) if is_app else chapter_sort_key(num, key))
         docs.append([sort_key, num, ctitle, groups, cv, blocks, chap, path, bool(hdr), is_app])
     # a file whose header block couldn't be read must not be titled with the manual's or organization's name
@@ -1102,7 +1263,7 @@ def convert_many(paths, out_path, cfg, title=None, fallback_title='Manual'):
     top = lambda d: max(d, key=d.get) if d else ''
     if not cfg.get('org') and orgs:
         page.cfg = dict(page.cfg, org=top(orgs))
-    page.write(out_path, title or cfg['title'] or wv.smart_title(top(manuals)) or fallback_title)
+    page.write(out_path, title or cfg['title'] or wv.toc_case(top(manuals)) or fallback_title)
 
 
 def chapter_sort_key(num, filekey):
@@ -1137,9 +1298,12 @@ def main():
     ap.add_argument('-c', '--config', help='JSON config (see configs/)')
     ap.add_argument('--title')
     ap.add_argument('--subtitle')
+    ap.add_argument('--footer', help='text for a thin bar at the bottom of the page, e.g. "Official manual - internal use only"')
     a = ap.parse_args()
     cfg = dict(DEFAULTS)
     cfg.update(wv.load_config(a.config))
+    if a.footer is not None:
+        cfg['footer'] = a.footer
     if a.subtitle is not None:
         cfg['subtitle'] = a.subtitle
     files = collect_inputs(a.inputs)

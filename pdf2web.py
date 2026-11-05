@@ -35,6 +35,7 @@ import webviewer as wv  # noqa: E402
 
 DEFAULTS = {
     "title": None, "subtitle": "", "org": "", "meta": "",
+    "footer": "",                      # thin bar at the bottom of the page, e.g. "Official manual - internal use only"
     "skip_pages": [],                  # 1-based pages to leave out (e.g. [1] for a cover)
     "skip_toc_pages": True,            # leave out "Table of Contents" pages (the sidebar replaces them)
     "page_label_offset": 0,            # printed page number = PDF page - offset
@@ -705,7 +706,8 @@ def convert(pdf_path, out_path, cfg, embed=True):
     orig = open(pdf_path, 'rb').read() if embed else None
     size = wv.assemble(out_path, nav, body, title, cfg['subtitle'], cfg['org'], cfg['meta'],
                        original_bytes=orig, original_name=os.path.basename(pdf_path), original_kind='pdf',
-                       pages=n, page_offset=cfg['page_label_offset'])
+                       pages=n, page_offset=cfg['page_label_offset'], footer=cfg.get('footer', ''),
+                       link_base=cfg.get('link_base', ''))
     not_found = [e for e in entries if e['found'] == 'page']
     log('  %d cross-reference links, %d glued words fixed' % (nlinks, len(fixer.fixed)))
     if not_found:
@@ -721,6 +723,7 @@ def main():
     ap.add_argument('-c', '--config', help='JSON config with structure rules (see configs/)')
     ap.add_argument('--title')
     ap.add_argument('--subtitle')
+    ap.add_argument('--footer', help='text for a thin bar at the bottom of the page')
     ap.add_argument('--no-embed', action='store_true', help="don't embed the original PDF (smaller file, no 'Original' button)")
     a = ap.parse_args()
     cfg = dict(DEFAULTS)
@@ -729,6 +732,8 @@ def main():
         cfg['title'] = a.title
     if a.subtitle is not None:
         cfg['subtitle'] = a.subtitle
+    if a.footer is not None:
+        cfg['footer'] = a.footer
     out = a.out or os.path.splitext(a.pdf)[0] + '.html'
     convert(a.pdf, out, cfg, embed=not a.no_embed)
 
