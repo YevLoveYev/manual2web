@@ -236,7 +236,7 @@ def resolve_refs(body, targets):
 # ----------------------------------------------------------------------------
 def assemble(out_path, nav, content_html, title, subtitle='', org='', meta='',
              original_bytes=None, original_name='', original_kind='none', pages=0, page_offset=0, footer='',
-             link_base=''):
+             link_base='', cfg=None):
     """Write the single self-contained HTML file.
 
     nav: list of chapters:
@@ -244,6 +244,15 @@ def assemble(out_path, nav, content_html, title, subtitle='', org='', meta='',
     """
     with open(TEMPLATE, encoding='utf-8') as f:
         t = f.read()
+    cfg = cfg or {}
+    # optional title block at the top of the page ("cover": false removes it)
+    if cfg.get('cover', True) is False:
+        t = re.sub(r'    <section class="cover" id="top">.*?</section>\n', '    <span class="anchor" id="top"></span>\n', t, count=1, flags=re.S)
+    # optional notice that pops up when the page opens ("popup": true = the footer text, or its own text)
+    popup = cfg.get('popup')
+    popup_text = footer if popup is True else (popup if isinstance(popup, str) else '')
+    popup_cfg = {'text': popup_text or '', 'title': cfg.get('popup_title') or 'Notice',
+                 'button': cfg.get('popup_button') or 'OK', 'every': cfg.get('popup_frequency') or 'always'}
     mime = {'pdf': 'application/pdf',
             'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}.get(original_kind, '')
     if not original_bytes:
@@ -262,6 +271,8 @@ def assemble(out_path, nav, content_html, title, subtitle='', org='', meta='',
         '__FOOTER__': esc(footer or ''),
         '__LINKBASE__': js((link_base or '').split('#')[0]),
         '__BODYCLASS__': 'has-foot' if footer else '',
+        '__BODYSTYLE__': footer_size_css(cfg.get('footer_size')),
+        '__POPUP__': js(popup_cfg),
         '__ORIG__': js(orig),
         '__NAV__': js(nav),
     }
@@ -272,6 +283,16 @@ def assemble(out_path, nav, content_html, title, subtitle='', org='', meta='',
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write(t)
     return os.path.getsize(out_path)
+
+
+def footer_size_css(v):
+    """14 -> '--foot-size:14px'; also accepts '14px', '11pt', '1.1em'. Anything else is ignored."""
+    if v in (None, '', False):
+        return ''
+    v = str(v).strip()
+    if re.match(r'^\d+(\.\d+)?$', v):
+        v += 'px'
+    return '--foot-size:%s' % v if re.match(r'^\d+(\.\d+)?(px|pt|em|rem)$', v) else ''
 
 
 def load_config(path):

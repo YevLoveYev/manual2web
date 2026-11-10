@@ -6,7 +6,7 @@
 <title>__DOCTITLE__</title>
 <style>
 :root{
-  --fh:0px;
+  --fh:0px; --danger:#b42318;
   --bg:#f6f5f2; --paper:#ffffff; --ink:#1d2330; --ink2:#4a5263; --ink3:#7a8191;
   --line:#e3e1db; --line2:#eeece7; --accent:#1f4e8c; --accent-soft:#e8eef7; --accent-ink:#163a6a;
   --mark:#ffe58a; --mark-strong:#ffc93c; --proc:#7a4b12; --proc-soft:#fbf3e6;
@@ -17,14 +17,14 @@
   :root:not([data-theme="light"]){
     --bg:#15181e; --paper:#1c2028; --ink:#e6e8ec; --ink2:#b4bac6; --ink3:#848b99;
     --line:#2d323d; --line2:#252a33; --accent:#7fa8e6; --accent-soft:#223149; --accent-ink:#a9c6f2;
-    --mark:#6b5a12; --mark-strong:#9a7d0c; --proc:#e7b56f; --proc-soft:#2b2418;
+    --mark:#6b5a12; --mark-strong:#9a7d0c; --proc:#e7b56f; --proc-soft:#2b2418; --danger:#ff7b72;
     --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
   }
 }
 :root[data-theme="dark"]{
   --bg:#15181e; --paper:#1c2028; --ink:#e6e8ec; --ink2:#b4bac6; --ink3:#848b99;
   --line:#2d323d; --line2:#252a33; --accent:#7fa8e6; --accent-soft:#223149; --accent-ink:#a9c6f2;
-  --mark:#6b5a12; --mark-strong:#9a7d0c; --proc:#e7b56f; --proc-soft:#2b2418;
+  --mark:#6b5a12; --mark-strong:#9a7d0c; --proc:#e7b56f; --proc-soft:#2b2418; --danger:#ff7b72;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box}
@@ -68,21 +68,23 @@ a{color:var(--accent)}
 .rmore{padding:10px 14px;font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line2)}
 
 /* ---------- layout ---------- */
-.side{position:fixed;top:var(--hh);bottom:var(--fh);left:0;width:var(--sw);overflow:auto;background:var(--paper);border-right:1px solid var(--line);padding:10px 0 40px;z-index:30;overscroll-behavior:contain}
+.side{position:fixed;top:var(--hh);bottom:var(--fh);left:0;width:var(--sw);overflow:auto;background:var(--paper);border-right:1px solid var(--line);padding:0 0 40px;z-index:30;overscroll-behavior:contain}
 main{margin-left:var(--sw);padding:calc(var(--hh) + 28px) 40px calc(120px + var(--fh))}
 body.has-foot{--fh:28px}
-.foot{display:none;position:fixed;left:0;right:0;bottom:0;height:var(--fh);z-index:45;align-items:center;justify-content:center;padding:0 16px;
-  background:var(--paper);border-top:1px solid var(--line);color:var(--ink3);font-size:12px;line-height:1.2;text-align:center;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.foot{display:none;position:fixed;left:0;right:0;bottom:0;min-height:28px;z-index:45;align-items:center;justify-content:center;padding:5px 16px;
+  background:var(--paper);border-top:1px solid var(--line);color:var(--danger);font-weight:700;font-size:var(--foot-size,12.5px);line-height:1.35;text-align:center;
+  white-space:normal;overflow-wrap:anywhere}
 body.has-foot .foot{display:flex}
 .content{max-width:860px;margin:0 auto}
 
 /* ---------- nav ---------- */
-.side .home{display:block;margin:4px 12px 10px;padding:8px 10px;border-radius:8px;text-decoration:none;color:var(--ink2);font-size:13.5px}
-.side .home:hover{background:var(--line2)}
+.side .home{display:block;position:sticky;top:0;z-index:5;margin:0;padding:12px 22px;text-decoration:none;color:var(--ink2);font-size:13.5px;
+  background:var(--paper);border-bottom:1px solid var(--line)}
+.side .home:hover{background:var(--line2);color:var(--ink)}
+.side .home + .gbox, .side .home + .ch{border-top:0}
 .ch{border-top:1px solid var(--line2)}
 .gbox{border-top:1px solid var(--line)}
-.gbtn{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;cursor:pointer;text-align:left;padding:13px 14px;font-size:12.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
+.gbtn{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;cursor:pointer;text-align:left;padding:14px 14px;font-size:15px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
 .gbtn:hover{background:var(--line2)}
 .gbtn span{flex:1}
 .gbtn .car{flex:none;width:16px;height:16px;color:var(--ink3);transition:transform .15s}
@@ -92,8 +94,8 @@ body.has-foot .foot{display:flex}
 .gbody .grp.g1{padding-top:8px}
 .gbody .ch{border-top:0}
 .grp{padding:16px 14px 6px;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);border-top:1px solid var(--line)}
-.grp.g1{padding:8px 14px 4px 18px;font-size:12.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink2);border-top:0}
-.grp.g2{padding:6px 14px 2px 26px;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink3);border-top:0}
+.grp.g1{padding:10px 14px 4px 18px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);border-top:0}
+.grp.g2{padding:6px 14px 2px 26px;font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink2);border-top:0}
 .chbtn{display:flex;width:100%;align-items:flex-start;gap:4px;padding:0 6px 0 0}
 .chbtn:hover{background:var(--line2)}
 .nav a.chlink{display:flex;flex:1;align-items:flex-start;gap:10px;padding:10px 4px 10px 14px;border-left:3px solid transparent;color:var(--ink);text-decoration:none;font-size:inherit;background:none}
@@ -102,19 +104,19 @@ body.has-foot .foot{display:flex}
 .cartog{flex:none;border:0;background:none;cursor:pointer;padding:10px 6px;border-radius:6px;color:var(--ink3)}
 .cartog:hover{color:var(--ink);background:var(--line)}
 .chbtn .cn{flex:none;font:600 12px/22px ui-monospace,Consolas,monospace;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:0 6px;margin-top:1px}
-.chbtn .ct{font-size:14px;font-weight:600;line-height:1.35;padding-top:2px}
+.chbtn .ct{font-size:13px;font-weight:600;line-height:1.35;padding-top:2px}
 .chbtn .car{display:block;width:16px;height:16px;transition:transform .15s}
 .ch.open .car{transform:rotate(90deg)}
 .chbody{display:none;padding:0 0 10px}
 .ch.open .chbody{display:block}
-.nav a{display:flex;gap:8px;padding:4px 14px 4px 22px;font-size:13px;line-height:1.4;color:var(--ink2);text-decoration:none;border-left:3px solid transparent}
+.nav a{display:flex;gap:8px;padding:4px 14px 4px 22px;font-size:12.5px;line-height:1.4;color:var(--ink2);text-decoration:none;border-left:3px solid transparent}
 .nav a:hover{background:var(--line2);color:var(--ink)}
 .nav a.active{border-left-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
 .nav a .n{flex:none;font:12px/1.55 ui-monospace,Consolas,monospace;color:var(--ink3);min-width:52px}
-.nav a.l1{font-weight:600;color:var(--ink);margin-top:4px}
+.nav a.l1{font-weight:500;color:var(--ink2);margin-top:2px}
 .nav a.l1.active{color:var(--accent-ink)}
 .nav a.l2{padding-left:34px}
-.nav a.l3{padding-left:46px;font-size:12.5px}
+.nav a.l3{padding-left:46px;font-size:12px}
 .nav a.l3 .n{min-width:60px}
 .nav a.u{color:var(--ink3);font-style:italic}
 .sub{margin:8px 0 0}
@@ -141,7 +143,9 @@ body.has-foot .foot{display:flex}
 
 /* ---------- content typography ---------- */
 .content h1.chapter{font-size:28px;line-height:1.2;margin:56px 0 18px;padding:22px 0 12px;border-top:3px solid var(--accent);letter-spacing:-.01em}
+.content h1 .cnum{font-family:ui-monospace,Consolas,monospace;font-weight:600;color:var(--accent);margin-right:4px}
 .content h1 .num{display:block;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:4px}
+.content #top + h1.chapter{margin-top:0}
 .content h2{font-size:21px;line-height:1.3;margin:40px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
 .content h3{font-size:17.5px;line-height:1.35;margin:28px 0 8px}
 .content h4{font-size:15.5px;line-height:1.4;margin:22px 0 6px}
@@ -199,6 +203,14 @@ body.has-foot .foot{display:flex}
 .totop svg{width:18px;height:18px}
 .toast{position:fixed;top:calc(var(--hh) + 14px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
 .toast.show{opacity:1}
+.notice{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(10,14,22,.55)}
+.notice.show{display:flex}
+.nbox{background:var(--paper);color:var(--ink);border-radius:12px;box-shadow:var(--shadow);width:min(560px,100%);padding:22px 24px 18px;border-top:5px solid var(--danger)}
+.ntitle{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--danger);margin-bottom:10px}
+.nbox p{margin:0 0 18px;font-size:15.5px;line-height:1.55;font-weight:600}
+.nact{display:flex;justify-content:flex-end}
+.nok{border:0;background:var(--accent);color:var(--paper);font-weight:700;font-size:14px;padding:9px 22px;border-radius:8px;cursor:pointer}
+.nok:hover{filter:brightness(1.1)}
 .copybox{position:fixed;top:calc(var(--hh) + 12px);left:50%;transform:translateX(-50%);z-index:65;display:none;align-items:center;gap:10px;
   background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:10px 12px;font-size:13px;color:var(--ink2);
   width:min(760px,calc(100vw - 32px))}
@@ -224,7 +236,7 @@ body.has-foot .foot{display:flex}
   body.nav-open .side{transform:none}
   body.nav-open .scrim{display:block;position:fixed;inset:var(--hh) 0 0 0;background:rgba(10,14,22,.35);z-index:25}
   main{margin-left:0;padding:calc(var(--hh) + 20px) 16px calc(100px + var(--fh))}
-  .foot{font-size:11px}
+  .foot{font-size:calc(var(--foot-size,12.5px) * .92)}
   .hitbar{left:50%;bottom:calc(16px + var(--fh))}
   .totop{bottom:calc(76px + var(--fh));right:16px}
   .tools .lbl{display:none}
@@ -250,7 +262,7 @@ body.has-foot .foot{display:flex}
 }
 </style>
 </head>
-<body class="__BODYCLASS__">
+<body class="__BODYCLASS__" style="__BODYSTYLE__">
 <header class="top">
   <button class="btn menu-btn" id="menuBtn" aria-label="Table of contents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   <div class="brand"><b>__TITLE__</b><span>__SUBTITLE__</span></div>
@@ -287,6 +299,9 @@ __CONTENT__
 <div class="toast" id="toast"></div>
 <div class="copybox" id="copybox" role="dialog" aria-label="Copy link"><span>Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy the link:</span><input id="copyinp" readonly><button class="btn" id="copyclose">Done</button></div>
 <footer class="foot" role="contentinfo">__FOOTER__</footer>
+<div class="notice" id="notice" role="dialog" aria-modal="true" aria-labelledby="ntitle" aria-describedby="ntext">
+  <div class="nbox"><div class="ntitle" id="ntitle"></div><p id="ntext"></p><div class="nact"><button class="nok" id="nok"></button></div></div>
+</div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Original PDF">
   <div class="mbox">
     <div class="mhead"><b id="mtitle">Original PDF</b><span class="sp"></span>
@@ -341,7 +356,7 @@ NAV.forEach(function(ch){
     }
   }
   prevG = g;
-  var h = '<div class="ch" data-ch="'+ch.id+'"><div class="chbtn"><a class="chlink" href="#'+ch.id+'">'+(ch.num ? '<span class="cn">'+esc(ch.num)+'</span>' : '')+'<span class="ct">'+esc(ch.t)+'</span></a><button class="cartog" aria-expanded="false" aria-label="Show or hide sections">'+ICON_CAR+'</button></div><div class="chbody">';
+  var h = '<div class="ch" data-ch="'+ch.id+'"><div class="chbtn"><a class="chlink" href="#'+ch.id+'">'+(ch.num ? '<span class="cn">'+esc(ch.num)+'</span>' : '')+'<span class="ct">'+esc(ch.t)+'</span></a>'+((ch.secs.length || ch.exs.length || ch.procs.length) ? '<button class="cartog" aria-expanded="false" aria-label="Show or hide sections">'+ICON_CAR+'</button>' : '')+'</div><div class="chbody">';
   ch.secs.forEach(function(s){ nSec++;
     h += '<a class="l'+s.l+'" href="#'+s.id+'"><span class="n">'+s.num+'</span><span>'+esc(tcase(s.t))+'</span></a>'; });
   function sub(label, items, fmt){
@@ -358,7 +373,7 @@ NAV.forEach(function(ch){
 });
 closeBox();
 side.innerHTML = navHTML;
-$('stats').textContent = NAV.length+' chapters · '+nSec+' sections · '+nProc+' procedures & tasks';
+if ($('stats')) $('stats').textContent = NAV.length+' chapters · '+nSec+' sections · '+nProc+' procedures & tasks';
 
 side.addEventListener('click', function(e){
   var gb = e.target.closest('.gbtn');
@@ -366,7 +381,7 @@ side.addEventListener('click', function(e){
   var t = e.target.closest('.cartog');
   if (t){ var c = t.closest('.ch'); var o = c.classList.toggle('open'); t.setAttribute('aria-expanded', o); return; }
   var cl = e.target.closest('.chlink');
-  if (cl){ var c2 = cl.closest('.ch'); c2.classList.add('open'); c2.querySelector('.cartog').setAttribute('aria-expanded', true) }
+  if (cl){ var c2 = cl.closest('.ch'); c2.classList.add('open'); (c2.querySelector('.cartog') || document.createElement('i')).setAttribute('aria-expanded', true) }
   var b = e.target.closest('.subbtn');
   if (b){ var p = b.parentNode; var o2 = p.classList.toggle('open'); b.setAttribute('aria-expanded', o2); return; }
   if (e.target.closest('a')) document.body.classList.remove('nav-open');
@@ -460,7 +475,7 @@ function spy(){
     if (a){
       a.classList.add('active');
       var ch = a.closest('.ch'), sb = a.closest('.sub');
-      if (ch && !ch.classList.contains('open')){ ch.classList.add('open'); ch.querySelector('.cartog').setAttribute('aria-expanded', true) }
+      if (ch && !ch.classList.contains('open')){ ch.classList.add('open'); (ch.querySelector('.cartog') || document.createElement('i')).setAttribute('aria-expanded', true) }
       var gbx = a.closest('.gbox');
       if (gbx && !gbx.classList.contains('open')){ gbx.classList.add('open'); gbx.querySelector('.gbtn').setAttribute('aria-expanded', true) }
       if (sb && !sb.classList.contains('open')) sb.classList.add('open');
@@ -707,6 +722,31 @@ $('themeBtn').onclick = function(){
 };
 
 if (ORIG.kind !== 'pdf'){ var tipEls = document.querySelectorAll('.cover .tips span'); }
+/* ---------- footer: wraps on narrow windows; keep sidebar/content clear of its real height ---------- */
+(function(){
+  var foot = document.querySelector('.foot');
+  if (!foot || !document.body.classList.contains('has-foot')) return;
+  function fit(){ var h = foot.offsetHeight; if (h) document.body.style.setProperty('--fh', h + 'px') }
+  fit();
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(foot); else window.addEventListener('resize', fit);
+})();
+/* ---------- notice that pops up when the page opens ---------- */
+var POPUP = __POPUP__;
+(function(){
+  if (!POPUP.text) return;
+  if (POPUP.every === 'session'){
+    try { if (sessionStorage.getItem('manual-notice-seen')) return } catch (e) {}
+  }
+  $('ntitle').textContent = POPUP.title; $('ntext').textContent = POPUP.text; $('nok').textContent = POPUP.button;
+  var box = $('notice'); box.classList.add('show');
+  var ok = $('nok'); setTimeout(function(){ ok.focus() }, 0);
+  function close(){
+    box.classList.remove('show');
+    if (POPUP.every === 'session'){ try { sessionStorage.setItem('manual-notice-seen', '1') } catch (e) {} }
+  }
+  ok.addEventListener('click', close);
+  box.addEventListener('keydown', function(e){ if (e.key === 'Escape' || e.key === 'Enter'){ e.preventDefault(); close() } });
+})();
 spy();
 })();
 </script>

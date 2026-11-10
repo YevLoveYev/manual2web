@@ -242,6 +242,12 @@ All keys are optional. The PDF and Word scripts share most of them.
   Clicking it still just jumps to the section. Without `link_base` the link is the section only (`#6111-22`).
 - `section_id_prefix` / `chapter_id_prefix`: how section and chapter addresses start. Default `"s"` / `"ch"`
   (`#s6111-22`, `#ch6111`); set both to `""` for plain numbers (`#6111-22`, `#6111`).
+- `footer_size`: footer text size in pixels (default 12.5), e.g. `"footer_size": 14`. Long footer text wraps
+  onto more lines on narrow windows instead of being cut off.
+- `popup`: a notice that pops up when the page opens, with an OK button. `true` = shows the `footer` text,
+  or give its own text: `"popup": "..."`. `popup_frequency`: `"always"` (every time the page opens, default)
+  or `"session"` (once until the browser is closed). `popup_title` / `popup_button` change "Notice" / "OK".
+- `cover`: `false` removes the title block at the top of the page, so it starts with the first chapter.
 - `toc_case`: capitalization of sidebar entries and chapter/section headings: `"title"` (default,
   Title Case; acronyms and codes like LIMS, SFL2, AM6311 are kept), `"upper"` (ALL CAPS) or `"asis"`.
 - `keep_upper`: extra words that must stay in capitals, e.g. `["NARCAN", "OCDETF"]` (2-4 letter acronyms

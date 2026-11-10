@@ -67,7 +67,12 @@ def on(el):
 DEFAULTS = {
     "title": None, "subtitle": "", "org": "", "meta": "",
     "footer": "",                  # thin bar at the bottom of the page, e.g. "Official manual - internal use only"
-    "link_base": "",               # published address of the page; heading "Link" = link_base + "#section"
+    "link_base": "",
+    "hide_single_section": True,   # sidebar: don't list the only section of a document under it
+    "cover": True,                 # title block at the top of the page; false = start straight with the content
+    "footer_size": 12.5,           # footer text size in pixels (or "11pt", "1em")
+    "popup": False,                # notice when the page opens: true = the footer text, or "your own text"
+    "popup_frequency": "always",   # "always" = every time the page opens, "session" = once per browser session               # published address of the page; heading "Link" = link_base + "#section"
     "section_id_prefix": "s",      # section addresses: "s" -> #s6111-22, "" -> #6111-22
     "chapter_id_prefix": "ch",     # chapter addresses: "ch" -> #ch6111, "" -> #6111
     "chapter_level": "auto",       # heading level used for chapters (1 = Heading 1)
@@ -793,10 +798,15 @@ class Page(object):
         if groups:
             cur['g'] = groups
         self.nav.append(cur)
-        label = ' · '.join((groups if word != 'Appendix' else []) + ([word + ' ' + num] if num else []))
+        if groups and num and word != 'Appendix':
+            # "GENERAL · AUTHORITY AND CONDUCT" above, "6112 Conduct" as the title
+            label = ' · '.join(groups)
+            title_html = '<span class="cnum">%s</span> %s' % (html.escape(num), html.escape(cur['t']))
+        else:
+            label = ' · '.join((groups if word != 'Appendix' else []) + ([word + ' ' + num] if num else []))
+            title_html = html.escape(cur['t'])
         self.html.append('<h1 id="%s" class="chapter">%s%s</h1>'
-                         % (cid, '<span class="num">%s</span> ' % html.escape(label) if label else '',
-                            html.escape(cur['t'])))
+                         % (cid, '<span class="num">%s</span> ' % html.escape(label) if label else '', title_html))
         return cur
 
     def add_document(self, cv, blocks, chap, cur=None):
@@ -871,13 +881,17 @@ class Page(object):
     def write(self, out_path, title):
         for ch in self.nav:          # consistent capitalization everywhere in the sidebar
             ch['t'] = self.case(ch['t'])
+            # a document with just one section: the document entry is enough (no extra item under it)
+            if self.cfg.get('hide_single_section', True) and len(ch['secs']) == 1 and not ch['exs'] and not ch['procs']:
+                ch['secs'] = []
             for key in ('secs', 'exs', 'procs'):
                 for it in ch[key]:
                     it['t'] = self.case(it['t'])
         body = '\n'.join(x for x in self.html if x)
         body, nlinks = wv.resolve_refs(body, self.targets)
         size = wv.assemble(out_path, self.nav, body, title, self.cfg['subtitle'], self.cfg['org'], self.cfg['meta'],
-                           original_kind='none', footer=self.cfg.get('footer', ''), link_base=self.cfg.get('link_base', ''))
+                           original_kind='none', footer=self.cfg.get('footer', ''), link_base=self.cfg.get('link_base', ''),
+                           cfg=self.cfg)
         nav = self.nav
         log('  %d chapters, %d sections, %d exhibits, %d procedures; %d pictures%s; %d footnotes; %d cross-reference links'
             % (len(nav), sum(len(c['secs']) for c in nav), sum(len(c['exs']) for c in nav),
